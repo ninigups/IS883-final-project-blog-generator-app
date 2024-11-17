@@ -16,6 +16,8 @@ def get_gpt4o_mini_response(input_text, no_words, blog_style):
     try:
         # Construct the prompt
         prompt = f"Write a blog for a {blog_style} job profile on the topic '{input_text}'. Limit the content to approximately {no_words} words."
+
+        # Make a call to OpenAI's GPT-4o Mini model
         response = openai.ChatCompletion.create(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}]
@@ -34,7 +36,6 @@ st.set_page_config(
     layout="centered",
     initial_sidebar_state="collapsed"
 )
-
 st.header("Generate Blogs 🛫 ")
 
 # Sidebar Navigation
