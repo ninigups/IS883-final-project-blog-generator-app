@@ -138,3 +138,124 @@ elif st.session_state.active_branch == "Post-travel":
 if st.session_state.active_branch is not None:
     if st.button("Back to Home", key="back_btn"):
         st.session_state.active_branch = None  # Reset active branch
+import pytesseract
+from PIL import Image
+import PyPDF2
+import io
+
+if 'active_branch' in st.session_state:
+    # Post-travel Branch Additions
+    if st.session_state.active_branch == "Post-travel":
+        # Expense Data from Excel
+        st.header("Post-travel: Data Classification and Summary")
+        st.subheader("Upload Expenses (Excel File)")
+        expense_file = st.file_uploader("Upload your expenses (Excel file)", type=["xlsx"], key="expense_file")
+        if expense_file is not None:
+            expense_df = pd.read_excel(expense_file)
+            st.subheader("Expenses Data from Excel:")
+            st.write(expense_df)
+        else:
+            expense_df = pd.DataFrame()  
+
+        # Expense Data from Receipts (Images and PDFs)
+        st.subheader("Upload Expense Receipts (Images or PDFs)")
+        receipt_files = st.file_uploader(
+            "Upload your expense receipts (images or PDFs)",
+            type=["png", "jpg", "jpeg", "pdf"],
+            accept_multiple_files=True,
+            key="receipt_files"
+        )
+        expenses = []
+        if receipt_files:
+            try:
+                for receipt_file in receipt_files:
+                    file_type = receipt_file.type
+                    if file_type == "application/pdf":
+                        # Process PDF file
+                        pdf_reader = PyPDF2.PdfReader(receipt_file)
+                        text = ""
+                        for page_num in range(len(pdf_reader.pages)):
+                            page = pdf_reader.pages[page_num]
+                            text += page.extract_text()
+                    
+                        amount_matches = re.findall(r"(?i)(total|amount due|grand total)[^\d]*(\d+\.\d{2})", text)
+                        if amount_matches:
+                            for match in amount_matches:
+                                amount = float(match[1])
+                                expenses.append({
+                                    "File": receipt_file.name,
+                                    "Amount": amount,
+                                    "Text": text
+                                })
+                    else:
+                        # Image File Processing
+                        image = Image.open(receipt_file)
+                        text = pytesseract.image_to_string(image)
+                        amount_matches = re.findall(r"(?i)(total|amount due|grand total)[^\d]*(\d+\.\d{2})", text)
+                        if amount_matches:
+                            for match in amount_matches:
+                                amount = float(match[1])
+                                expenses.append({
+                                    "File": receipt_file.name,
+                                    "Amount": amount,
+                                    "Text": text
+                                })
+                if expenses:
+                    expenses_df = pd.DataFrame(expenses)
+                    st.subheader("Extracted Expenses from Receipts:")
+                    st.write(expenses_df)
+                else:
+                    st.write("No expenses extracted from receipts.")
+                    expenses_df = pd.DataFrame()  # Empty DataFrame if no expenses extracted
+            except Exception as e:
+                st.error(f"An error occurred while processing receipts: {e}")
+                expenses_df = pd.DataFrame()
+        else:
+            expenses_df = pd.DataFrame()
+
+        # Consolidate Expenses
+        if not expense_df.empty and not expenses_df.empty:
+            combined_expenses_df = pd.concat([expense_df, expenses_df], ignore_index=True)
+            st.subheader("Consolidated Expenses:")
+            st.write(combined_expenses_df)
+        elif not expense_df.empty:
+            st.subheader("Expenses (from Excel):")
+            st.write(expense_df)
+            combined_expenses_df = expense_df
+        elif not expenses_df.empty:
+            st.subheader("Expenses (from Receipts):")
+            st.write(expenses_df)
+            combined_expenses_df = expenses_df
+        else:
+            st.write("No expenses data available.")
+            combined_expenses_df = pd.DataFrame()
+
+        # Trip Experience Feedback
+        st.header("Trip Experience Feedback")
+        st.write("Please provide your ratings and reviews for the following parameters:")
+
+        # Define parameters
+        parameters = [
+            "Sight-seeing locations",
+            "Hotels",
+            "Food",
+            "Local transport",
+            "Local population (friendliness, helpfulness, hospitable)",
+            "Weather"
+        ]
+        feedback_data = []
+
+        for param in parameters:
+            st.subheader(param)
+            rating = st.slider(f"Rating for {param} (1-10)", min_value=1, max_value=10, key=f"rating_{param}")
+            review_text = st.text_area(f"Review for {param}", key=f"review_{param}")
+            feedback_data.append({
+                "Parameter": param,
+                "Rating (1-10)": rating,
+                "Review Text": review_text
+            })
+
+        if st.button("Submit Feedback"):
+            feedback_df = pd.DataFrame(feedback_data)
+            st.subheader("Your Trip Experience Feedback:")
+            st.write(feedback_df)
