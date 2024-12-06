@@ -12,6 +12,7 @@ from langchain_community.utilities import GoogleSerperAPIWrapper
 import openai
 import streamlit as st
 import time
+import easyocr
 
 # Load API keys from st.secrets directly
 openai.api_key = st.secrets["TestKey1"]
@@ -252,7 +253,7 @@ if show_post_travel:
 
     receipt_files = st.file_uploader("Upload receipts (PDF or Images)", type=["pdf", "png", "jpg", "jpeg"], accept_multiple_files=True)
 
-    import easyocr
+import easyocr
 reader = easyocr.Reader(['en'])
 
 preprocess_contrast = st.slider("Increase Image Contrast Factor", 1.0, 3.0, 1.0, 0.1)
