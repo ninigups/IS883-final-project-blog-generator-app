@@ -343,7 +343,7 @@ if show_post_travel:
         return text
 
     extracted_expenses = []
-    text_content = ""  # Store last processed text for classification if needed
+    text_content = ""  
 
     if receipt_files:
         for rfile in receipt_files:
@@ -355,7 +355,6 @@ if show_post_travel:
                     page_text = page.extract_text() or ""
                     text_content += page_text + "\n"
             else:
-                # Process image file
                 img = Image.open(rfile)
                 text_content = ocr_image(img, contrast_factor=preprocess_contrast)
 
@@ -400,9 +399,7 @@ if show_post_travel:
     # Tabular classification of output for expenses
     st.subheader("Classify Expenses into Categories")
     st.write("Categories: Food, Transport, Accommodation, Entertainment, Miscellaneous, Grand total")
-    # We'll classify just one expense text if available
     if not combined_expenses.empty:
-        # Use OpenAI LLM (Change model if needed)
         llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.0)
         from langchain.agents.agent_types import AgentType
 
@@ -442,7 +439,7 @@ if show_post_travel:
         except Exception as e:
             st.write(f"Error generating review: {e}")
 
-    # Classify the review generated based on parameters (e.g., sentiment)
+    # Classify the review generated based on parameters (e.g., postitive, negative or neutral)
     if st.session_state.get("review_generated"):
         st.subheader("Classify the Generated Review")
         sentiment_prompt = f"""
