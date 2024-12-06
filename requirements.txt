@@ -9,3 +9,7 @@ geopy
 PyPDF2
 openpyxl
 reportlab
+easyocr
+torch
+torchvision
+opencv-python-headless
