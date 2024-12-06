@@ -8,3 +8,4 @@ pillow
 geopy
 PyPDF2
 openpyxl
+reportlab
