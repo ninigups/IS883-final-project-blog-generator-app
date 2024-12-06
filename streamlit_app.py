@@ -240,7 +240,7 @@ if 'active_branch' in st.session_state:
             "Hotels",
             "Food",
             "Local transport",
-            "Local population (friendliness, helpfulness, hospitable)",
+            "Local population (Friendliness, Helpfulness, Hospitable)",
             "Weather"
         ]
         feedback_data = []
