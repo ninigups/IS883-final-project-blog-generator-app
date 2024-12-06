@@ -1,10 +1,10 @@
 #my_secret_key = st.secrets['MyOpenAIKey']
 #os.environ["OPENAI_API_KEY"] = my_secret_key
 
-#my_secret_key = st.secrets['IS883-OpenAIKey-RV']
+#my_secret_key = st.secrets['TestKey1']
 #os.environ["OPENAI_API_KEY"] = my_secret_key
 
-#my_secret_key = st.secrets['IS883-OpenAIKey-RV']
+#my_secret_key = st.secrets['TestKey1']
 #openai.api_key = my_secret_key
 
 import streamlit as st
@@ -17,7 +17,7 @@ from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut
 
 # Load your API Key
-my_secret_key = st.secrets['IS883-OpenAIKey-RV']
+my_secret_key = st.secrets['TestKey1']
 openai.api_key = my_secret_key
 
 # Function to extract activities and coordinates from the itinerary
