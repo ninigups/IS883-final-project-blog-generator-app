@@ -270,8 +270,7 @@ import re
 from langchain.chat_models import ChatOpenAI
 from langchain.agents import initialize_agent, AgentType
 
-# Checkbox to hide Post-Travel section initially
-show_post_travel = st.checkbox("Show Post-Travel Review", value=False)
+show_post_travel = st.checkbox("Show Post-Travel Review", value=True)
 if show_post_travel:
     st.header("Post-Travel Summary and Review")
 
