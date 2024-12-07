@@ -287,6 +287,9 @@ if st.session_state.post_trip_active:
     with col3:
         duration = st.number_input("Duration (days)", min_value=1, value=1, step=1)
     
+    # Initialize LLM once here for all uses
+    llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.4)
+    
     # User input table for trip experience
     st.subheader("Rate Your Experience")
     parameters = [
@@ -327,9 +330,6 @@ if st.session_state.post_trip_active:
             feedback_df["Date"] = date_visited
             feedback_df["Duration"] = f"{duration} days"
             
-            # Initialize LLM
-            llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.4)
-            
             # Generate blog-style summary
             all_reviews = "\n".join([f"{row['Parameter']}: {row['Rating']}/10 - {row['Review']}" 
                                    for row in feedback_data])
@@ -349,48 +349,48 @@ if st.session_state.post_trip_active:
                 st.subheader("Your Travel Story")
                 st.write(blog_post)
 
-# Hidden Gems section 
-st.subheader("💎 Planning to Visit Again? Discover Hidden Gems")
-with st.spinner("Finding unique local spots..."):
-    hidden_gems_query = f"hidden gems OR secret spots OR local favorites OR off the beaten path {location_visited} -tripadvisor -tourradar"
-    try:
-        search_results = serper_tool.func(hidden_gems_query)
-        
-        hidden_gems_prompt = f"""
-        Based on these search results about {location_visited}, provide:
-        
-        1. Lesser-Known Local Spots: Hidden restaurants, cafes, or viewpoints that tourists often miss
-        2. Authentic Local Experiences: Unique cultural activities or traditions you can participate in
-        3. Local Tips: Best times to visit these places and insider recommendations
-        
-        Focus on unique, authentic experiences that aren't in typical tourist guides.
-        Make it personal by addressing the reader directly using "you" and "your".
-        Format with clear, concise headings and bullet points.
-        Keep the text size consistent throughout.
-        Do not add location name in the title, start directly with the categories.
-        """
-        
-        hidden_gems_info = llm.predict(hidden_gems_prompt)
-        st.write(hidden_gems_info)
-    except Exception as e:
-        st.error(f"Error finding hidden gems: {str(e)}")
+            # Recommendations section
+            st.subheader("🌍 Recommended Destinations for Your Next Visit")
+            with st.spinner("Finding personalized recommendations..."):
+                recommendation_prompt = f"""
+                Based on your ratings and feedback for {location_visited}:
+                {all_reviews}
+                
+                Suggest 3 destinations that align with your ratings and preferences. For each destination, provide:
+                1. Why it matches your preferences: (emphasize by using "you" and "your")
+                2. Best time to visit
+                3. Estimated budget needed (in USD per day)
+                
+                Format as clear sections for each destination with these points clearly labeled.
+                Make it personal by using "you" and "your" throughout the recommendations.
+                Avoid adding any concluding statements at the end.
+                """
+                
+                recommendations = llm.predict(recommendation_prompt)
+                st.write(recommendations)
 
-      # Recommended Destinations section 
-st.subheader("🌍 Recommended Destinations for Your Next Visit")
-with st.spinner("Finding personalized recommendations..."):
-    recommendation_prompt = f"""
-    Based on your ratings and feedback for {location_visited}:
-    {all_reviews}
-    
-    Suggest 3 destinations that align with your ratings and preferences. For each destination, provide:
-    1. Why it matches your preferences: (emphasize by using "you" and "your")
-    2. Best time to visit
-    3. Estimated budget needed (in USD per day)
-    
-    Format as clear sections for each destination with these points clearly labeled.
-    Make it personal by using "you" and "your" throughout the recommendations.
-    Avoid adding any concluding statements at the end.
-    """
-    
-    recommendations = llm.predict(recommendation_prompt)
-    st.write(recommendations)
+            # Hidden Gems section
+            st.subheader("💎 Planning to Visit Again? Discover Hidden Gems")
+            with st.spinner("Finding unique local spots..."):
+                hidden_gems_query = f"hidden gems OR secret spots OR local favorites OR off the beaten path {location_visited} -tripadvisor -tourradar"
+                try:
+                    search_results = serper_tool.func(hidden_gems_query)
+                    
+                    hidden_gems_prompt = f"""
+                    Based on these search results about {location_visited}, provide:
+                    
+                    1. Lesser-Known Local Spots: Hidden restaurants, cafes, or viewpoints that tourists often miss
+                    2. Authentic Local Experiences: Unique cultural activities or traditions you can participate in
+                    3. Local Tips: Best times to visit these places and insider recommendations
+                    
+                    Focus on unique, authentic experiences that aren't in typical tourist guides.
+                    Make it personal by addressing the reader directly using "you" and "your".
+                    Format with clear, concise headings and bullet points.
+                    Keep the text size consistent throughout.
+                    Do not add location name in the title, start directly with the categories.
+                    """
+                    
+                    hidden_gems_info = llm.predict(hidden_gems_prompt)
+                    st.write(hidden_gems_info)
+                except Exception as e:
+                    st.error(f"Error finding hidden gems: {str(e)}")
