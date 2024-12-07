@@ -257,6 +257,13 @@ if generate_button:
 if st.session_state.post_trip_active:
     st.header("Post-Trip Feedback & Summary")
     
+    # Add location and date visited fields
+    col1, col2 = st.columns(2)
+    with col1:
+        location_visited = st.text_input("Location Visited", placeholder="Enter city/country")
+    with col2:
+        date_visited = st.date_input("Date Visited")
+    
     # Initialize feedback data in session state if not exists
     if "feedback_data" not in st.session_state:
         st.session_state.feedback_data = []
@@ -272,30 +279,58 @@ if st.session_state.post_trip_active:
         "Weather"
     ]
     
+    feedback_data = []
     for param in parameters:
+        st.write(f"**{param}**")
         col1, col2 = st.columns([1, 2])
         with col1:
-            rating = st.slider(f"{param} Rating (1-10)", 1, 10, 5, key=f"rating_{param}")
+            rating = st.slider(f"Rating (1-10)", 1, 10, 5, key=f"rating_{param}")
         with col2:
-            review = st.text_input(f"Review for {param}", key=f"review_{param}")
-        
-        # Store in session state
-        if f"feedback_{param}" not in st.session_state:
-            st.session_state[f"feedback_{param}"] = {"rating": rating, "review": review}
+            review = st.text_area(f"Your thoughts about {param}", key=f"review_{param}", height=100)
+        feedback_data.append({
+            "Parameter": param,
+            "Rating": rating,
+            "Review": review
+        })
     
     if st.button("Submit Feedback", key="submit_feedback"):
-        feedback_data = [
-            {
-                "Parameter": param,
-                "Rating": st.session_state[f"feedback_{param}"]["rating"],
-                "Review": st.session_state[f"feedback_{param}"]["review"]
-            }
-            for param in parameters
-        ]
-        st.session_state.feedback_submitted = pd.DataFrame(feedback_data)
+        # Include location and date in feedback
+        feedback_df = pd.DataFrame(feedback_data)
+        feedback_df["Location"] = location_visited
+        feedback_df["Date"] = date_visited
+        
+        st.session_state.feedback_submitted = feedback_df
         st.success("Feedback submitted successfully!")
-        st.write(st.session_state.feedback_submitted)
+        st.write(feedback_df)
 
+        # Generate comprehensive analysis
+        st.subheader("Trip Analysis")
+        
+        # Combine all reviews for sentiment analysis
+        all_reviews = " ".join([f"{row['Review']}" for row in feedback_data if row['Review']])
+        average_rating = sum([row['Rating'] for row in feedback_data]) / len(feedback_data)
+        
+        llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.3)
+        
+        analysis_prompt = f"""
+        Analyze this trip feedback for {location_visited}:
+        
+        Average Rating: {average_rating}/10
+        Reviews: {all_reviews}
+        
+        Please provide:
+        1. Overall sentiment (Positive/Negative/Neutral) with explanation
+        2. Key highlights from the reviews
+        3. Areas of improvement
+        4. Based on this feedback, recommend 3 other destinations they might enjoy
+        
+        Format the response with clear headers and bullet points.
+        """
+        
+        with st.spinner("Analyzing your feedback..."):
+            analysis = llm.predict(analysis_prompt)
+            st.write(analysis)
+            
     # Excel input for expenses
     st.subheader("Upload Expenses (Excel File)")
     expense_file = st.file_uploader("Upload an Excel file with expenses", type=["xlsx"], key="expense_file")
@@ -305,10 +340,16 @@ if st.session_state.post_trip_active:
             st.write("Expenses from Excel:")
             st.write(expense_df)
             
-            # Use LangChain for expense analysis
+            # Expense Analysis
             llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.3)
             expense_text = expense_df.to_string()
-            analysis_prompt = f"Analyze these travel expenses and provide total spending, main categories, and any notable patterns: {expense_text}"
+            analysis_prompt = f"""
+            Analyze these travel expenses for {location_visited} and provide:
+            1. Total spending
+            2. Breakdown by category
+            3. Cost-saving opportunities
+            4. Comparison to typical expenses for this destination
+            """
             
             if st.button("Analyze Expenses"):
                 with st.spinner("Analyzing expenses..."):
@@ -318,34 +359,18 @@ if st.session_state.post_trip_active:
                     
         except Exception as e:
             st.error(f"Error reading Excel file: {str(e)}")
+
+    # Add photo memories section
+    st.subheader("Upload Trip Photos")
+    photos = st.file_uploader("Share your trip photos", type=["png", "jpg", "jpeg"], 
+                            accept_multiple_files=True, key="photos")
     
-    # Generate trip summary
-    if st.button("Generate Trip Summary"):
-        if hasattr(st.session_state, 'feedback_submitted'):
-            feedback_text = "\n".join([
-                f"{row['Parameter']}: Rated {row['Rating']}/10 - {row['Review']}"
-                for _, row in st.session_state.feedback_submitted.iterrows()
-            ])
-            
-            llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.4)
-            summary_prompt = f"""
-            Based on the following feedback, create a comprehensive trip summary:
-            {feedback_text}
-            Please include:
-            1. Overall experience highlights
-            2. Areas of excellence
-            3. Areas for improvement
-            4. Recommendations for future travelers
-            """
-            
-            with st.spinner("Generating summary..."):
-                summary = llm.predict(summary_prompt)
-                st.write("Trip Summary:")
-                st.write(summary)
-        else:
-            st.warning("Please submit feedback first to generate a trip summary.")
-    
-    # Add a button to go back to main page
-    if st.button("Return to Trip Planning"):
-        st.session_state.post_trip_active = False
-        st.experimental_rerun()
+    if photos:
+        st.write("Your Trip Memories:")
+        cols = st.columns(3)
+        for idx, photo in enumerate(photos):
+            with cols[idx % 3]:
+                st.image(photo, caption=f"Memory {idx+1}", use_column_width=True)
+                location_tag = st.text_input(f"Location tag for photo {idx+1}", 
+                                          placeholder="Enter location")
+                st.session_state[f"photo_{idx}_location"] = location_tag
