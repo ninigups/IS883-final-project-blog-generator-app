@@ -273,83 +273,83 @@ if st.session_state.itinerary and st.session_state.flight_prices:
     )
 # Post-travel features
 if show_post_travel:
-st.header("Post-Trip Feedback & Summary")
+    st.header("Post-Trip Feedback & Summary")
     
-# User input table for trip experience
-st.subheader("Rate Your Experience")
-parameters = [
-        "Sight-seeing Locations",
+    # User input table for trip experience
+    st.subheader("Rate Your Experience")
+    parameters = [
+        "Sight-seeing locations",
         "Hotels",
         "Food",
         "Local transport",
         "Local population (Friendliness, Helpfulness, Hospitable)",
         "Weather"
     ]
-feedback_data = []
-for param in parameters:
-    rating = st.slider(f"{param} Rating (1-10)", 1, 10, 5, key=f"rating_{param}")
-    review_text = st.text_input(f"Review for {param}", key=f"review_{param}", placeholder="Enter your review...")
-    feedback_data.append({"Parameter": param, "Rating": rating, "Review": review_text})
+    feedback_data = []
+    for param in parameters:
+        rating = st.slider(f"{param} Rating (1-10)", 1, 10, 5, key=f"rating_{param}")
+        review_text = st.text_input(f"Review for {param}", key=f"review_{param}", placeholder="Enter your review...")
+        feedback_data.append({"Parameter": param, "Rating": rating, "Review": review_text})
 
-# Excel file upload for expenses
-st.subheader("Upload Your Trip Expenses")
-expense_file = st.file_uploader("Upload Excel file with expenses", type=["xlsx"])
-if expense_file is not None:
-expense_df = pd.read_excel(expense_file)
-st.write("Your Expenses:")
-st.write(expense_df)
+    # Excel file upload for expenses
+    st.subheader("Upload Your Trip Expenses")
+    expense_file = st.file_uploader("Upload Excel file with expenses", type=["xlsx"])
+    if expense_file is not None:
+        expense_df = pd.read_excel(expense_file)
+        st.write("Your Expenses:")
+        st.write(expense_df)
 
-    
-st.subheader("Expense Analysis")
-llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.5)
+        # LangChain to analyze expenses
+        st.subheader("Expense Analysis")
+        llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0)
         
-# Chain for expense analysis
-expense_text = expense_df.to_string()
-analysis_prompt = f"""
-Analyze these travel expenses and provide:
-1. Total spending
-2. Top expense categories
-3. Budget-saving recommendations
+        # simple chain for expense analysis
+        expense_text = expense_df.to_string()
+        analysis_prompt = f"""
+        Analyze these travel expenses and provide:
+        1. Total spending
+        2. Top expense categories
+        3. Budget-saving recommendations
         
-Expenses:
-{expense_text}
+        Expenses:
+        {expense_text}
         """
         
-if st.button("Analyze Expenses"):
-with st.spinner("Analyzing expenses..."):
-analysis = llm.predict(analysis_prompt)
-st.write(analysis)
+        if st.button("Analyze Expenses"):
+            with st.spinner("Analyzing expenses..."):
+                analysis = llm.predict(analysis_prompt)
+                st.write(analysis)
 
-# Generate trip summary using COT
-st.subheader("Generate Trip Summary")
-if st.button("Generate Summary"):
-feedback_text = "\n".join([f"{row['Parameter']}: {row['Rating']}/10 - {row['Review']}" 
+    # Generate trip summary using Chain of Thought
+    st.subheader("Generate Trip Summary")
+    if st.button("Generate Summary"):
+        feedback_text = "\n".join([f"{row['Parameter']}: {row['Rating']}/10 - {row['Review']}" 
                                  for row in feedback_data])
         
-summary_prompt = f"""
-Let's think about this step by step:
-1. First, analyze the ratings to identify highlights and lowlights
-2. Then, look at the detailed reviews for context
-3. Finally, create a comprehensive summary
+        summary_prompt = f"""
+        Let's think about this step by step:
+        1. First, analyze the ratings to identify highlights and lowlights
+        2. Then, look at the detailed reviews for context
+        3. Finally, create a comprehensive summary
         
-User's feedback:
-{feedback_text}
+        User's feedback:
+        {feedback_text}
         
-Based on this analysis, provide a detailed trip summary.
+        Based on this analysis, provide a detailed trip summary.
         """
         
-with st.spinner("Generating summary..."):
-summary = llm.predict(summary_prompt)
-st.write(summary)
+        with st.spinner("Generating summary..."):
+            summary = llm.predict(summary_prompt)
+            st.write(summary)
 
-# Photo upload and OCR for receipts
-st.subheader("Upload Trip Photos & Receipts")
-uploaded_files = st.file_uploader("Upload photos or receipts", 
+    # Photo upload and OCR for receipts
+    st.subheader("Upload Trip Photos & Receipts")
+    uploaded_files = st.file_uploader("Upload photos or receipts", 
                                     type=["png", "jpg", "jpeg"], 
                                     accept_multiple_files=True)
     
-if uploaded_files:
-for file in uploaded_files:
+    if uploaded_files:
+        for file in uploaded_files:
             try:
                 image = Image.open(file)
                 st.image(image, caption=file.name, width=300)
