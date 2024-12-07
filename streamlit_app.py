@@ -344,43 +344,45 @@ if st.session_state.post_trip_active:
                 blog_post = llm.predict(blog_prompt)
                 st.subheader("Your Travel Story")
                 st.write(blog_post)
-
-            # Travel companion finder
-            st.subheader("🤝 Find Travel Companions for Your Next Adventure")
-            with st.spinner("Finding travel companions..."):
-                companion_query = f"site:reddit.com travel companion {location_visited} OR travel buddy {location_visited} OR solo travel {location_visited}"
-                search_results = serper_tool.func(companion_query)
-                
-                companion_prompt = f"""
-                Based on these search results about travel companions and solo travel in {location_visited}:
-                {search_results}
-                
-                Please provide:
-                1. Popular platforms/communities for finding travel companions
-                2. Recent posts about people looking for travel buddies in this area
-                3. Tips for solo travelers in {location_visited}
-                4. Safety recommendations for meeting travel companions
-                
-                Keep it concise and practical.
-                """
-                
-                companion_info = llm.predict(companion_prompt)
-                st.write(companion_info)
+#Hidden Gems
+           st.subheader("💎 Planning to Visit Again? Discover Hidden Gems")
+with st.spinner("Finding unique local spots..."):
+    hidden_gems_query = f"hidden gems OR secret spots OR local favorites OR off the beaten path {location_visited} -tripadvisor -tourradar"
+    try:
+        search_results = serper_tool.func(hidden_gems_query)
+        
+        hidden_gems_prompt = f"""
+        Based on these search results about {location_visited}, provide:
+        
+        1. Lesser-Known Local Spots: Hidden restaurants, cafes, or viewpoints that tourists often miss
+        2. Authentic Local Experiences: Unique cultural activities or traditions you can participate in
+        3. Local Tips: Best times to visit these places and insider recommendations
+        
+        Focus on unique, authentic experiences that aren't in typical tourist guides.
+        Make it personal by addressing the reader directly using "you" and "your".
+        Format with clear headings and bullet points for easy reading.
+        """
+        
+        hidden_gems_info = llm.predict(hidden_gems_prompt)
+        st.write(hidden_gems_info)
+    except Exception as e:
+        st.error(f"Error finding hidden gems: {str(e)}")
 
             # Destination recommendations
-            st.subheader("🌍 Recommended Destinations for Your Next Visit")
-            with st.spinner("Finding personalized recommendations..."):
-                recommendation_prompt = f"""
-                Based on this user's ratings and reviews of {location_visited}:
-                {all_reviews}
-                
-                Suggest 3 other destinations they might enjoy. For each destination:
-                1. Explain why it matches their preferences
-                2. Best time to visit
-                3. Estimated budget needed
-                
-                Keep each recommendation concise but informative.
-                """
-                
-                recommendations = llm.predict(recommendation_prompt)
-                st.write(recommendations)
+           st.subheader("🌍 Recommended Destinations for Your Next Visit")
+with st.spinner("Finding personalized recommendations..."):
+    recommendation_prompt = f"""
+    Based on your ratings and feedback for {location_visited}:
+    {all_reviews}
+    
+    Suggest 3 destinations that align with your ratings and preferences. For each destination, provide:
+    1. Why it matches your preferences: (emphasize by using "you" and "your")
+    2. Best time to visit
+    3. Estimated budget needed (in USD per day)
+    
+    Format as clear sections for each destination with these points clearly labeled.
+    Make it personal by using "you" and "your" throughout the recommendations.
+    """
+    
+    recommendations = llm.predict(recommendation_prompt)
+    st.write(recommendations)
