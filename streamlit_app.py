@@ -211,19 +211,29 @@ if "flight_prices" not in st.session_state:
     st.session_state.flight_prices = None
 
 # Main Content Section
-if st.button("📝 Generate Travel Itinerary"):
-    if not origin or not destination or len(travel_dates) != 2:
-        st.error("⚠️ Please provide all required details: origin, destination, and a valid travel date range.")
-    else:
-        progress = st.progress(0)
-        for i in range(100):
-            time.sleep(0.01)  # Simulate loading time
-            progress.progress(i + 1)
+# Initialize session state for post-trip
+if 'post_trip_active' not in st.session_state:
+    st.session_state.post_trip_active = False
 
-        with st.spinner("Fetching details..."):
-            st.session_state.flight_prices = fetch_flight_prices(origin, destination, travel_dates[0].strftime("%Y-%m-%d"))
-            st.session_state.itinerary = generate_itinerary_with_chatgpt(origin, destination, travel_dates, interests, budget)
+# Main buttons layout
+col1, col2 = st.columns([1, 1])
+with col1:
+    if st.button("📝 Generate Travel Itinerary", use_container_width=True):
+        if not origin or not destination or len(travel_dates) != 2:
+            st.error("⚠️ Please provide all required details: origin, destination, and a valid travel date range.")
+        else:
+            progress = st.progress(0)
+            for i in range(100):
+                time.sleep(0.01)  # Simulate loading time
+                progress.progress(i + 1)
 
+            with st.spinner("Fetching details..."):
+                st.session_state.flight_prices = fetch_flight_prices(origin, destination, travel_dates[0].strftime("%Y-%m-%d"))
+                st.session_state.itinerary = generate_itinerary_with_chatgpt(origin, destination, travel_dates, interests, budget)
+
+with col2:
+    if st.button("📊 Post-Trip Feedback", use_container_width=True):
+        st.session_state.post_trip_active = True
 # Display results only if available
 if st.session_state.itinerary and st.session_state.flight_prices:
     st.success("✅ Your travel details are ready!")
