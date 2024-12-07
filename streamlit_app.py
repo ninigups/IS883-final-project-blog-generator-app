@@ -271,8 +271,16 @@ if st.session_state.itinerary and st.session_state.flight_prices:
         file_name="travel_itinerary.pdf",
         mime="application/pdf",
     )
+
+import pytesseract
+from PIL import Image, ImageEnhance
+import PyPDF2
+import re
+from langchain.chat_models import ChatOpenAI
+from langchain.agents import initialize_agent, AgentType
+
 # Post-travel features
-if show_post_travel:
+if post_trip_button:
     st.header("Post-Trip Feedback & Summary")
     
     # User input table for trip experience
@@ -291,87 +299,59 @@ if show_post_travel:
         review_text = st.text_input(f"Review for {param}", key=f"review_{param}", placeholder="Enter your review...")
         feedback_data.append({"Parameter": param, "Rating": rating, "Review": review_text})
 
-    # Excel file upload for expenses
-    st.subheader("Upload Your Trip Expenses")
-    expense_file = st.file_uploader("Upload Excel file with expenses", type=["xlsx"])
+    submit_feedback = st.button("Submit Feedback")
+    if submit_feedback:
+        feedback_df = pd.DataFrame(feedback_data)
+        st.write("Your Trip Feedback:")
+        st.write(feedback_df)
+
+    # Excel input for expenses
+    st.subheader("Upload Expenses (Excel File)")
+    expense_file = st.file_uploader("Upload an Excel file with expenses", type=["xlsx"], key="expense_file")
     if expense_file is not None:
         expense_df = pd.read_excel(expense_file)
-        st.write("Your Expenses:")
+        st.write("Expenses from Excel:")
         st.write(expense_df)
+    else:
+        expense_df = pd.DataFrame()
 
-        # LangChain to analyze expenses
-        st.subheader("Expense Analysis")
-        llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0)
-        
-        # simple chain for expense analysis
-        expense_text = expense_df.to_string()
-        analysis_prompt = f"""
-        Analyze these travel expenses and provide:
-        1. Total spending
-        2. Top expense categories
-        3. Budget-saving recommendations
-        
-        Expenses:
-        {expense_text}
+    # PDF input for expenses and OCR for images
+    st.subheader("Upload Receipts for Expense Extraction (PDF or Images)")
+    receipt_files = st.file_uploader("Upload receipt files", type=["pdf", "png", "jpg", "jpeg"], accept_multiple_files=True)
+
+    # Add contrast adjustment for better OCR
+    preprocess_contrast = st.slider("Increase Image Contrast Factor", 1.0, 3.0, 1.0, 0.1)
+    st.write("Use a higher factor if the receipt text is faint.")
+
+    if receipt_files:
+        for rfile in receipt_files:
+            file_type = rfile.type
+            if file_type == "application/pdf":
+                pdf_reader = PyPDF2.PdfReader(rfile)
+                for page in pdf_reader.pages:
+                    text_content = page.extract_text()
+                    st.text(text_content)
+            else:
+                try:
+                    img = Image.open(rfile)
+                    img = ImageEnhance.Contrast(img).enhance(preprocess_contrast)
+                    text_content = pytesseract.image_to_string(img)
+                    st.text(text_content)
+                except Exception as e:
+                    st.error(f"Error processing image: {str(e)}")
+
+    # Generate Trip Experience Review using Chain of Thought
+    st.subheader("Generate Trip Experience Review")
+    if st.button("Generate Review"):
+        all_reviews = " ".join([f"{row['Parameter']}: Rated {row['Rating']}, Review: {row['Review']}" for row in feedback_data])
+        review_prompt = f"""
+        Based on the following feedback, create a comprehensive trip review:
+        {all_reviews}
         """
-        
-        if st.button("Analyze Expenses"):
-            with st.spinner("Analyzing expenses..."):
-                analysis = llm.predict(analysis_prompt)
-                st.write(analysis)
-
-    # Generate trip summary using Chain of Thought
-    st.subheader("Generate Trip Summary")
-    if st.button("Generate Summary"):
-        feedback_text = "\n".join([f"{row['Parameter']}: {row['Rating']}/10 - {row['Review']}" 
-                                 for row in feedback_data])
-        
-        summary_prompt = f"""
-        Let's think about this step by step:
-        1. First, analyze the ratings to identify highlights and lowlights
-        2. Then, look at the detailed reviews for context
-        3. Finally, create a comprehensive summary
-        
-        User's feedback:
-        {feedback_text}
-        
-        Based on this analysis, provide a detailed trip summary.
-        """
-        
-        with st.spinner("Generating summary..."):
-            summary = llm.predict(summary_prompt)
-            st.write(summary)
-
-    # Photo upload and OCR for receipts
-    st.subheader("Upload Trip Photos & Receipts")
-    uploaded_files = st.file_uploader("Upload photos or receipts", 
-                                    type=["png", "jpg", "jpeg"], 
-                                    accept_multiple_files=True)
-    
-    if uploaded_files:
-        for file in uploaded_files:
-            try:
-                image = Image.open(file)
-                st.image(image, caption=file.name, width=300)
-                
-                # Extract text from receipts using OCR
-                if st.button(f"Extract Text from {file.name}"):
-                    text = pytesseract.image_to_string(image)
-                    st.text_area("Extracted Text:", text)
-            except Exception as e:
-                st.error(f"Error processing {file.name}: {str(e)}")
-
-    # Generate recommendations for future trips
-    st.subheader("Get Personalized Travel Recommendations")
-    if st.button("Generate Travel Recommendations"):
-        recommend_prompt = f"""
-        Based on the user's ratings and reviews:
-        {feedback_text}
-        
-        Suggest 3 destinations for their next trip that align with their preferences.
-        Explain why each destination would be a good match.
-        """
-        
-        with st.spinner("Generating recommendations..."):
-            recommendations = llm.predict(recommend_prompt)
-            st.write(recommendations)
+        llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.3)
+        try:
+            review_response = llm.predict(review_prompt)
+            st.write("Generated Trip Review:")
+            st.write(review_response)
+        except Exception as e:
+            st.error(f"Error generating review: {str(e)}")
