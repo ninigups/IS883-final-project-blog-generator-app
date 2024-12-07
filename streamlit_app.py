@@ -349,26 +349,6 @@ if st.session_state.post_trip_active:
                 st.subheader("Your Travel Story")
                 st.write(blog_post)
 
-            # Recommendations section
-            st.subheader("🌍 Recommended Destinations for Your Next Visit")
-            with st.spinner("Finding personalized recommendations..."):
-                recommendation_prompt = f"""
-                Based on your ratings and feedback for {location_visited}:
-                {all_reviews}
-                
-                Suggest 3 destinations that align with your ratings and preferences. For each destination, provide:
-                1. Why it matches your preferences: (emphasize by using "you" and "your")
-                2. Best time to visit
-                3. Estimated budget needed (in USD per day)
-                
-                Format as clear sections for each destination with these points clearly labeled.
-                Make it personal by using "you" and "your" throughout the recommendations.
-                Avoid adding any concluding statements at the end.
-                """
-                
-                recommendations = llm.predict(recommendation_prompt)
-                st.write(recommendations)
-
             # Hidden Gems section
             st.subheader("💎 Planning to Visit Again? Discover Hidden Gems")
             with st.spinner("Finding unique local spots..."):
@@ -394,3 +374,23 @@ if st.session_state.post_trip_active:
                     st.write(hidden_gems_info)
                 except Exception as e:
                     st.error(f"Error finding hidden gems: {str(e)}")
+
+            # Recommendations section
+            st.subheader("🌍 Recommended Destinations for Your Next Visit")
+            with st.spinner("Finding personalized recommendations..."):
+                recommendation_prompt = f"""
+                Based on your ratings and feedback for {location_visited}:
+                {all_reviews}
+                
+                Suggest 3 destinations that align with your ratings and preferences. For each destination, provide:
+                1. Why it matches your preferences: (emphasize by using "you" and "your")
+                2. Best time to visit
+                3. Estimated budget needed (in USD per day)
+                
+                Format as clear sections for each destination with these points clearly labeled.
+                Make it personal by using "you" and "your" throughout the recommendations.
+                Avoid adding any concluding statements at the end.
+                """
+                
+                recommendations = llm.predict(recommendation_prompt)
+                st.write(recommendations)
