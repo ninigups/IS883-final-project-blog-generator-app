@@ -379,7 +379,7 @@ if st.session_state.post_trip_active:
                 except Exception as e:
                     st.error(f"Error finding hidden gems: {str(e)}")
 
-            # Recommendations section (moved to the end)
+            # Recommendations section 
             st.subheader("🌍 Recommended Destinations for Your Next Visit")
             with st.spinner("Finding personalized recommendations..."):
                 recommendation_prompt = f"""
