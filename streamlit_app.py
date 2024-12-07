@@ -1,7 +1,7 @@
 #os.environ["OPENAI_API_KEY"] = st.secrets['TestKey1']
 #os.environ["SERPER_API_KEY"] = st.secrets["SerperKey1"]
 
-#my_secret_key = st.secrets['MyOpenAIKey']
+#my_secret_key = st.secrets['TestKey1']
 #os.environ["OPENAI_API_KEY"] = my_secret_key
 
 #my_secret_key = st.secrets['TestKey1']
@@ -211,7 +211,14 @@ if "flight_prices" not in st.session_state:
     st.session_state.flight_prices = None
 
 # Main Content Section
-if st.button("📝 Generate Travel Itinerary"):
+col1, col2 = st.columns([1, 1])  
+
+with col1:
+    generate_button = st.button("📝 Generate Travel Itinerary")
+with col2:
+    post_trip_button = st.button("📊 Post-Trip Feedback")
+
+if generate_button:  
     if not origin or not destination or len(travel_dates) != 2:
         st.error("⚠️ Please provide all required details: origin, destination, and a valid travel date range.")
     else:
@@ -223,6 +230,9 @@ if st.button("📝 Generate Travel Itinerary"):
         with st.spinner("Fetching details..."):
             st.session_state.flight_prices = fetch_flight_prices(origin, destination, travel_dates[0].strftime("%Y-%m-%d"))
             st.session_state.itinerary = generate_itinerary_with_chatgpt(origin, destination, travel_dates, interests, budget)
+
+if post_trip_button:  # New post-trip section toggle
+    st.session_state.show_post_trip = True
 
 # Display results only if available
 if st.session_state.itinerary and st.session_state.flight_prices:
@@ -261,195 +271,107 @@ if st.session_state.itinerary and st.session_state.flight_prices:
         file_name="travel_itinerary.pdf",
         mime="application/pdf",
     )
-
-import pandas as pd
-import pytesseract
-from PIL import Image, ImageEnhance
-import PyPDF2
-import re
-from langchain.chat_models import ChatOpenAI
-from langchain.agents import initialize_agent, AgentType
-
-show_post_travel = st.checkbox("Show Post-Travel Review", value=True)
+# Post-travel features
 if show_post_travel:
-    st.header("Post-Travel Summary and Review")
-
+st.header("Post-Trip Feedback & Summary")
+    
 # User input table for trip experience
-    st.subheader("Trip Experience Feedback")
-    parameters = [
-        "Sight-seeing locations",
+st.subheader("Rate Your Experience")
+parameters = [
+        "Sight-seeing Locations",
         "Hotels",
         "Food",
         "Local transport",
         "Local population (Friendliness, Helpfulness, Hospitable)",
         "Weather"
     ]
-    feedback_data = []
-    for param in parameters:
-        rating = st.slider(f"{param} Rating (1-10)", 1, 10, 5, key=f"rating_{param}")
-        review_text = st.text_input(f"Review for {param}", key=f"review_{param}", placeholder="Enter your review...")
-        feedback_data.append({"Parameter": param, "Rating": rating, "Review": review_text})
+feedback_data = []
+for param in parameters:
+    rating = st.slider(f"{param} Rating (1-10)", 1, 10, 5, key=f"rating_{param}")
+    review_text = st.text_input(f"Review for {param}", key=f"review_{param}", placeholder="Enter your review...")
+    feedback_data.append({"Parameter": param, "Rating": rating, "Review": review_text})
 
-    submit_feedback = st.button("Submit Feedback")
-    if submit_feedback:
-        feedback_df = pd.DataFrame(feedback_data)
-        st.write("Your Trip Feedback:")
-        st.write(feedback_df)
+# Excel file upload for expenses
+st.subheader("Upload Your Trip Expenses")
+expense_file = st.file_uploader("Upload Excel file with expenses", type=["xlsx"])
+if expense_file is not None:
+expense_df = pd.read_excel(expense_file)
+st.write("Your Expenses:")
+st.write(expense_df)
 
-    # Excel input for expenses
-    st.subheader("Upload Expenses (Excel File)")
-    expense_file = st.file_uploader("Upload an Excel file with expenses", type=["xlsx"], key="expense_file")
-    if expense_file is not None:
-        expense_df = pd.read_excel(expense_file)
-        st.write("Expenses from Excel:")
-        st.write(expense_df)
-    else:
-        expense_df = pd.DataFrame()
-
-    # PDF input for expenses and OCR for images
-    st.subheader("Upload Receipts for Expense Extraction (PDF or Images)")
-    receipt_files = st.file_uploader("Upload receipt files", type=["pdf", "png", "jpg", "jpeg"], accept_multiple_files=True)
-
-    preprocess_contrast = st.slider("Increase Image Contrast Factor", 1.0, 3.0, 1.0, 0.1)
-    st.write("Use a higher factor if the receipt text is faint.")
-
-    # Improved regex patterns to find amounts
-    improved_patterns = [
-        r"(?i)(total\s*:?\s*\$?\s*([\d.,]+))",
-        r"(?i)(grand\s*total\s*:?\s*\$?\s*([\d.,]+))",
-        r"(?i)(amount\s*due\s*:?\s*\$?\s*([\d.,]+))",
-        r"(?i)(tip\s*:?\s*\$?\s*([\d.,]+))"
-    ]
-
-    def extract_amounts_from_text(text, patterns):
-        amounts_found = []
-        for pattern in patterns:
-            matches = re.findall(pattern, text)
-            for m in matches:
-                val_str = m[-1].replace(",", "").strip()
-                try:
-                    val = float(val_str)
-                    amounts_found.append(val)
-                except:
-                    pass
-        return amounts_found
-
-    def ocr_image(img, contrast_factor=1.0):
-        img = img.convert('L')
-        enhancer = ImageEnhance.Contrast(img)
-        img = enhancer.enhance(contrast_factor)
-        text = pytesseract.image_to_string(img)
-        return text
-
-    extracted_expenses = []
-    text_content = ""  
-
-    if receipt_files:
-        for rfile in receipt_files:
-            file_type = rfile.type
-            text_content = ""
-            if file_type == "application/pdf":
-                pdf_reader = PyPDF2.PdfReader(rfile)
-                for page in pdf_reader.pages:
-                    page_text = page.extract_text() or ""
-                    text_content += page_text + "\n"
-            else:
-                img = Image.open(rfile)
-                text_content = ocr_image(img, contrast_factor=preprocess_contrast)
-
-            st.write(f"**File:** {rfile.name}")
-            st.write("**Extracted Text (OCR):**")
-            st.text(text_content)
-
-            amounts = extract_amounts_from_text(text_content, improved_patterns)
-            if amounts:
-                for amt in amounts:
-                    extracted_expenses.append({
-                        "File": rfile.name,
-                        "Extracted Amount": amt
-                    })
-            else:
-                st.write("No amounts found. Adjust contrast or ensure text is clear.")
-
-    if extracted_expenses:
-        st.write("Extracted Expenses from Receipts:")
-        extracted_df = pd.DataFrame(extracted_expenses)
-        st.write(extracted_df)
-    else:
-        extracted_df = pd.DataFrame()
-
-    # Consolidate OCR Receipts and Post-travel expenses if both exist
-    if not expense_df.empty and not extracted_df.empty:
-        combined_expenses = pd.concat([expense_df, extracted_df], ignore_index=True)
-        st.subheader("Consolidated Expenses:")
-        st.write(combined_expenses)
-    elif not expense_df.empty:
-        st.subheader("Expenses (from Excel):")
-        st.write(expense_df)
-        combined_expenses = expense_df
-    elif not extracted_df.empty:
-        st.subheader("Expenses (from Receipts):")
-        st.write(extracted_df)
-        combined_expenses = extracted_df
-    else:
-        st.write("No expenses data available.")
-        combined_expenses = pd.DataFrame()
-
-    # Tabular classification of output for expenses
-    st.subheader("Classify Expenses into Categories")
-    st.write("Categories: Food, Transport, Accommodation, Entertainment, Miscellaneous, Grand total")
-    if not combined_expenses.empty:
-        llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.0)
-        from langchain.agents.agent_types import AgentType
-
-        tools = [serper_tool]
-        agent = initialize_agent(tools, llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION, verbose=False)
-
-        expense_text_for_class = text_content if text_content.strip() else "No text available"
-        user_query = f"Classify this expense into one of [Food, Transport, Accommodation, Entertainment, Miscellaneous, Grand total]. Expense text: {expense_text_for_class}"
-
-        if st.button("Classify Expense"):
-            with st.spinner("Classifying..."):
-                agent_answer = agent.run(user_query)
-            st.write("**Classification Result:**")
-            st.write(agent_answer)
-    else:
-        st.write("No expenses to classify yet.")
-
-    # Generate Trip Experience Review
-    st.subheader("Generate Trip Experience Review")
-    if "review_generated" not in st.session_state:
-        st.session_state.review_generated = None
-
-    if st.button("Generate Review"):
-        all_reviews = " ".join([f"{row['Parameter']}: Rated {row['Rating']}, Review: {row['Review']}" for row in feedback_data])
-        review_prompt = f"""
-        SYSTEM: You are a travel assistant that summarizes user feedback.
-        USER: Here are the user's feedback details:
-        {all_reviews}
-        Please create a short review summarizing the user's trip experience in a friendly tone.
+    
+st.subheader("Expense Analysis")
+llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.5)
+        
+# Chain for expense analysis
+expense_text = expense_df.to_string()
+analysis_prompt = f"""
+Analyze these travel expenses and provide:
+1. Total spending
+2. Top expense categories
+3. Budget-saving recommendations
+        
+Expenses:
+{expense_text}
         """
-        review_chain_llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.0)
-        try:
-            review_response = review_chain_llm(review_prompt)
-            st.session_state.review_generated = review_response.content
-            st.write("Generated Trip Experience Review:")
-            st.write(st.session_state.review_generated)
-        except Exception as e:
-            st.write(f"Error generating review: {e}")
+        
+if st.button("Analyze Expenses"):
+with st.spinner("Analyzing expenses..."):
+analysis = llm.predict(analysis_prompt)
+st.write(analysis)
 
-    # Classify the review generated based on parameters (e.g., postitive, negative or neutral)
-    if st.session_state.get("review_generated"):
-        st.subheader("Classify the Generated Review")
-        sentiment_prompt = f"""
-        SYSTEM: You are a sentiment analyst. Classify the user's review as 'Positive', 'Neutral', or 'Negative' based on the content.
-        USER: {st.session_state.review_generated}
+# Generate trip summary using COT
+st.subheader("Generate Trip Summary")
+if st.button("Generate Summary"):
+feedback_text = "\n".join([f"{row['Parameter']}: {row['Rating']}/10 - {row['Review']}" 
+                                 for row in feedback_data])
+        
+summary_prompt = f"""
+Let's think about this step by step:
+1. First, analyze the ratings to identify highlights and lowlights
+2. Then, look at the detailed reviews for context
+3. Finally, create a comprehensive summary
+        
+User's feedback:
+{feedback_text}
+        
+Based on this analysis, provide a detailed trip summary.
         """
-        if st.button("Classify Generated Review"):
-            sentiment_chain_llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.0)
+        
+with st.spinner("Generating summary..."):
+summary = llm.predict(summary_prompt)
+st.write(summary)
+
+# Photo upload and OCR for receipts
+st.subheader("Upload Trip Photos & Receipts")
+uploaded_files = st.file_uploader("Upload photos or receipts", 
+                                    type=["png", "jpg", "jpeg"], 
+                                    accept_multiple_files=True)
+    
+if uploaded_files:
+for file in uploaded_files:
             try:
-                sentiment_response = sentiment_chain_llm(sentiment_prompt)
-                st.write("Sentiment of the Review:")
-                st.write(sentiment_response.content)
+                image = Image.open(file)
+                st.image(image, caption=file.name, width=300)
+                
+                # Extract text from receipts using OCR
+                if st.button(f"Extract Text from {file.name}"):
+                    text = pytesseract.image_to_string(image)
+                    st.text_area("Extracted Text:", text)
             except Exception as e:
-                st.write(f"Error classifying review: {e}")
+                st.error(f"Error processing {file.name}: {str(e)}")
+
+    # Generate recommendations for future trips
+    st.subheader("Get Personalized Travel Recommendations")
+    if st.button("Generate Travel Recommendations"):
+        recommend_prompt = f"""
+        Based on the user's ratings and reviews:
+        {feedback_text}
+        
+        Suggest 3 destinations for their next trip that align with their preferences.
+        Explain why each destination would be a good match.
+        """
+        
+        with st.spinner("Generating recommendations..."):
+            recommendations = llm.predict(recommend_prompt)
+            st.write(recommendations)
