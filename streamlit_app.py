@@ -344,41 +344,43 @@ if st.session_state.post_trip_active:
                 blog_post = llm.predict(blog_prompt)
                 st.subheader("Your Travel Story")
                 st.write(blog_post)
-# Travel companion finder
-st.subheader("🤝 Find Travel Companions for Your Next Adventure")
-with st.spinner("Finding travel companions..."):
-    companion_query = f"site:reddit.com travel partner OR travel buddy {location_visited}"
-    search_results = serper_tool.func(companion_query)
-    
-    companion_prompt = f"""
-    Based on these search results about travel companions in {location_visited}:
-    {search_results}
-    
-    Please provide only:
-    1. Popular platforms/communities for finding travel companions (focus on actual travel companion websites and communities)
-    2. Recent posts about people looking for travel buddies in this area
-    
-    Keep it concise and focused only on finding travel companions (no solo travel tips).
-    Format with clear headings and bullet points.
-    """
-    
-    companion_info = llm.predict(companion_prompt)
-    st.write(companion_info)
 
-# Destination recommendations
-st.subheader("🌍 Recommended Destinations for Your Next Visit")
-with st.spinner("Finding personalized recommendations..."):
-    recommendation_prompt = f"""
-    Based on this user's ratings and reviews of {location_visited}:
-    {all_reviews}
-    
-    Suggest 3 other destinations they might enjoy. For each destination, provide:
-    1. Why it matches your preferences: (use second person "your" perspective)
-    2. Best time to visit
-    3. Estimated budget needed (in USD)
-    
-    Format as clear sections for each destination with the above three points clearly labeled.
-    """
-    
-    recommendations = llm.predict(recommendation_prompt)
-    st.write(recommendations)
+            # Travel companion finder
+            st.subheader("🤝 Find Travel Companions for Your Next Adventure")
+            with st.spinner("Finding travel companions..."):
+                companion_query = f"site:reddit.com travel companion {location_visited} OR travel buddy {location_visited} OR solo travel {location_visited}"
+                search_results = serper_tool.func(companion_query)
+                
+                companion_prompt = f"""
+                Based on these search results about travel companions and solo travel in {location_visited}:
+                {search_results}
+                
+                Please provide:
+                1. Popular platforms/communities for finding travel companions
+                2. Recent posts about people looking for travel buddies in this area
+                3. Tips for solo travelers in {location_visited}
+                4. Safety recommendations for meeting travel companions
+                
+                Keep it concise and practical.
+                """
+                
+                companion_info = llm.predict(companion_prompt)
+                st.write(companion_info)
+
+            # Destination recommendations
+            st.subheader("🌍 Recommended Destinations for Your Next Visit")
+            with st.spinner("Finding personalized recommendations..."):
+                recommendation_prompt = f"""
+                Based on this user's ratings and reviews of {location_visited}:
+                {all_reviews}
+                
+                Suggest 3 other destinations they might enjoy. For each destination:
+                1. Explain why it matches their preferences
+                2. Best time to visit
+                3. Estimated budget needed
+                
+                Keep each recommendation concise but informative.
+                """
+                
+                recommendations = llm.predict(recommendation_prompt)
+                st.write(recommendations)
