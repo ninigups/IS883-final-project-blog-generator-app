@@ -1,3 +1,15 @@
+#os.environ["OPENAI_API_KEY"] = st.secrets['TestKey1']
+#os.environ["SERPER_API_KEY"] = st.secrets["SerperKey1"]
+
+#my_secret_key = st.secrets['MyOpenAIKey']
+#os.environ["OPENAI_API_KEY"] = my_secret_key
+
+#my_secret_key = st.secrets['TestKey1']
+#os.environ["OPENAI_API_KEY"] = my_secret_key
+
+#my_secret_key = st.secrets['TestKey1']
+#openai.api_key = my_secret_key
+
 import os
 import urllib.parse
 from io import BytesIO
@@ -9,13 +21,6 @@ from langchain_community.utilities import GoogleSerperAPIWrapper
 import openai
 import streamlit as st
 import time
-import pandas as pd
-import pytesseract
-from PIL import Image, ImageEnhance
-import PyPDF2
-import re
-from langchain.chat_models import ChatOpenAI
-from langchain.agents import initialize_agent, AgentType
 
 # Load API keys
 os.environ["OPENAI_API_KEY"] = st.secrets['TestKey1']
@@ -103,35 +108,35 @@ def generate_itinerary_with_chatgpt(origin, destination, travel_dates, interests
 def create_pdf(itinerary, flight_prices):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter)
-    
+
+    # Styles for the document
     styles = getSampleStyleSheet()
     title_style = styles["Heading1"]
     section_style = styles["Heading2"]
     text_style = styles["BodyText"]
 
     elements = []
+
+    # Add title
     elements.append(Paragraph("Travel Itinerary", title_style))
-    elements.append(Spacer(1, 20))
+    elements.append(Spacer(1, 20))  # Add space
+
+    # Add itinerary section
     elements.append(Paragraph("Itinerary:", section_style))
     for line in itinerary.splitlines():
         elements.append(Paragraph(line, text_style))
-    elements.append(Spacer(1, 20))
+    elements.append(Spacer(1, 20))  # Add space
+
+    # Add flight prices section
     elements.append(Paragraph("Flight Prices:", section_style))
     for line in flight_prices.splitlines():
         elements.append(Paragraph(line, text_style))
-    elements.append(Spacer(1, 20))
+    elements.append(Spacer(1, 20))  # Add space
 
+    # Build the PDF
     doc.build(elements)
     buffer.seek(0)
     return buffer
-
-# Initialize session state variables
-if "post_trip_active" not in st.session_state:
-    st.session_state.post_trip_active = False
-if "itinerary" not in st.session_state:
-    st.session_state.itinerary = None
-if "flight_prices" not in st.session_state:
-    st.session_state.flight_prices = None
 
 # Streamlit UI configuration
 st.set_page_config(
@@ -141,7 +146,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Add custom CSS
+# Add custom CSS for sky blue background
 st.markdown(
     """
     <style>
@@ -199,72 +204,103 @@ with st.sidebar:
     budget = st.selectbox("💰 Select your budget level", ["Low (up to $5,000)", "Medium ($5,000 to $10,000)", "High ($10,000+)"])
     interests = st.multiselect("🎯 Select your interests", ["Beach", "Hiking", "Museums", "Local Food", "Shopping", "Parks", "Cultural Sites", "Nightlife"])
 
-# Main Content Section 
-col1, col2 = st.columns([1, 1])
-with col1:
-    generate_button = st.button("📝 Generate Travel Itinerary", use_container_width=True)
-with col2:
-    post_trip_button = st.button("📊 Post-Trip Feedback", use_container_width=True)
+# Store results in session state
+if "itinerary" not in st.session_state:
+    st.session_state.itinerary = None
+if "flight_prices" not in st.session_state:
+    st.session_state.flight_prices = None
 
-# Generate Itinerary Section
-if generate_button:
+# Main Content Section
+if st.button("📝 Generate Travel Itinerary"):
     if not origin or not destination or len(travel_dates) != 2:
         st.error("⚠️ Please provide all required details: origin, destination, and a valid travel date range.")
     else:
         progress = st.progress(0)
         for i in range(100):
-            time.sleep(0.01)
+            time.sleep(0.01)  # Simulate loading time
             progress.progress(i + 1)
 
         with st.spinner("Fetching details..."):
             st.session_state.flight_prices = fetch_flight_prices(origin, destination, travel_dates[0].strftime("%Y-%m-%d"))
             st.session_state.itinerary = generate_itinerary_with_chatgpt(origin, destination, travel_dates, interests, budget)
 
-        st.success("✅ Your travel details are ready!")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown(display_card("Itinerary", st.session_state.itinerary), unsafe_allow_html=True)
-        with col2:
-            st.markdown(display_card("Flight Prices", st.session_state.flight_prices), unsafe_allow_html=True)
+# Display results only if available
+if st.session_state.itinerary and st.session_state.flight_prices:
+    st.success("✅ Your travel details are ready!")
 
-        st.subheader("📍 Places to Visit with Map Links")
-        activities = [
-            line.split(":")[1].strip() 
-            for line in st.session_state.itinerary.split("\n") 
-            if ":" in line and "Activity" in line
-        ]
-        if activities:
-            for activity in activities:
-                place_name = extract_place_name(activity)
-                if place_name:
-                    maps_link = generate_maps_link(place_name, destination)
-                    st.markdown(f"- **{place_name}**: [View on Google Maps]({maps_link})")
-        else:
-            st.write("No activities could be identified.")
+    # Create two columns
+    col1, col2 = st.columns(2)
 
-        pdf_buffer = create_pdf(st.session_state.itinerary, st.session_state.flight_prices)
-        st.download_button(
-            label="📥 Download Itinerary as PDF",
-            data=pdf_buffer,
-            file_name="travel_itinerary.pdf",
-            mime="application/pdf",
-        )
+    with col1:
+        st.markdown(display_card("Itinerary", st.session_state.itinerary), unsafe_allow_html=True)
 
-# Post-trip section
+    with col2:
+        st.markdown(display_card("Flight Prices", st.session_state.flight_prices), unsafe_allow_html=True)
+
+    # Display map links directly on the main page
+    st.subheader("📍 Places to Visit with Map Links")
+    activities = [
+        line.split(":")[1].strip() 
+        for line in st.session_state.itinerary.split("\n") 
+        if ":" in line and "Activity" in line
+    ]
+    if activities:
+        for activity in activities:
+            place_name = extract_place_name(activity)
+            if place_name:
+                maps_link = generate_maps_link(place_name, destination)
+                st.markdown(f"- **{place_name}**: [View on Google Maps]({maps_link})")
+    else:
+        st.write("No activities could be identified.")
+
+    # Generate and provide download link for PDF
+    pdf_buffer = create_pdf(st.session_state.itinerary, st.session_state.flight_prices)
+    st.download_button(
+        label="📥 Download Itinerary as PDF",
+        data=pdf_buffer,
+        file_name="travel_itinerary.pdf",
+        mime="application/pdf",
+    )
+import pandas as pd
+from langchain.chat_models import ChatOpenAI
+from langchain.agents import initialize_agent, AgentType
+# Initialize post-trip state
+if 'post_trip_active' not in st.session_state:
+    st.session_state.post_trip_active = False
+
+# Main Content Section - Buttons
+col1, col2 = st.columns([1, 1])
+
+with col1:
+    generate_button = st.button("📝 Generate Travel Itinerary", use_container_width=True)
+with col2:
+    if st.button("📊 Post-Trip Feedback", use_container_width=True):
+        st.session_state.post_trip_active = True
+
+# Original generate itinerary code
+if generate_button:
+    if not origin or not destination or len(travel_dates) != 2:
+        st.error("⚠️ Please provide all required details: origin, destination, and a valid travel date range.")
+    else:
+        progress = st.progress(0)
+        for i in range(100):
+            time.sleep(0.01)  # Simulate loading time
+            progress.progress(i + 1)
+
+        with st.spinner("Fetching details..."):
+            st.session_state.flight_prices = fetch_flight_prices(origin, destination, travel_dates[0].strftime("%Y-%m-%d"))
+            st.session_state.itinerary = generate_itinerary_with_chatgpt(origin, destination, travel_dates, interests, budget)
+
+# Post-trip feedback section
 if st.session_state.post_trip_active:
     st.header("Post-Trip Feedback & Summary")
     
-    # Add location and date visited fields
+    # Location and date visited
     col1, col2 = st.columns(2)
     with col1:
         location_visited = st.text_input("Location Visited", placeholder="Enter city/country")
     with col2:
         date_visited = st.date_input("Date Visited")
-    
-    # Initialize feedback data in session state if not exists
-    if "feedback_data" not in st.session_state:
-        st.session_state.feedback_data = []
     
     # User input table for trip experience
     st.subheader("Rate Your Experience")
@@ -292,24 +328,23 @@ if st.session_state.post_trip_active:
         })
     
     if st.button("Submit Feedback", key="submit_feedback"):
-        # Include location and date in feedback
         feedback_df = pd.DataFrame(feedback_data)
         feedback_df["Location"] = location_visited
         feedback_df["Date"] = date_visited
         
-        st.session_state.feedback_submitted = feedback_df
-        st.success("Feedback submitted successfully!")
-
         # Generate blog-style summary
         llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.4)
+        
+        all_reviews = "\n".join([f"{row['Parameter']}: {row['Rating']}/10 - {row['Review']}" for row in feedback_data])
         
         blog_prompt = f"""
         Write a personal blog-style travel review based on this feedback for {location_visited} visited on {date_visited}:
         
-        {', '.join([f"{row['Parameter']}: {row['Rating']}/10 - {row['Review']}" for row in feedback_data])}
+        {all_reviews}
         
         Write in first person, make it engaging and personal, highlight both positives and negatives,
         and make it feel like a genuine travel blog post. Keep it to 2-3 paragraphs.
+        Include an overall sentiment analysis (Positive/Negative/Neutral) at the end.
         """
         
         with st.spinner("Generating your travel blog..."):
@@ -317,24 +352,24 @@ if st.session_state.post_trip_active:
             st.subheader("Your Travel Story")
             st.write(blog_post)
 
-        # Travel companion search section
-        st.subheader("🤝 Looking for Travel Companions?")
-        if st.button("Find Travel Companions"):
-            companion_query = f"site:reddit.com travel companion {location_visited} OR travel buddy {location_visited}"
+        # Travel companion finder
+        st.subheader("🤝 Find Travel Companions")
+        if st.button("Search for Travel Companions"):
+            companion_query = f"site:reddit.com travel companion {location_visited} OR travel buddy {location_visited} OR solo travel {location_visited}"
             try:
                 search_results = serper_tool.func(companion_query)
                 
                 companion_prompt = f"""
-                Based on these search results about travel companions:
+                Based on these search results about travel companions and solo travel in {location_visited}:
                 {search_results}
                 
-                Please summarize:
+                Please provide:
                 1. Popular platforms/communities for finding travel companions
-                2. Common safety tips for traveling with new people
-                3. Recommended ways to connect with potential travel buddies
-                4. Current travel companion opportunities for {location_visited}
+                2. Recent posts about people looking for travel buddies in this area
+                3. Tips for solo travelers in {location_visited}
+                4. Safety recommendations for meeting travel companions
                 
-                Format it in a clear, easy-to-read way.
+                Keep it concise and practical.
                 """
                 
                 with st.spinner("Finding travel companion information..."):
@@ -343,29 +378,21 @@ if st.session_state.post_trip_active:
             except Exception as e:
                 st.error(f"Error searching for travel companions: {str(e)}")
 
-        # Expense Analysis Section
-        st.subheader("Upload Expenses (Excel File)")
-        expense_file = st.file_uploader("Upload an Excel file with expenses", type=["xlsx"], key="expense_file")
-        if expense_file is not None:
-            try:
-                expense_df = pd.read_excel(expense_file)
-                st.write("Expenses from Excel:")
-                st.write(expense_df)
-                
-                expense_text = expense_df.to_string()
-                analysis_prompt = f"""
-                Analyze these travel expenses for {location_visited} and provide:
-                1. Total spending
-                2. Breakdown by category
-                3. Cost-saving opportunities
-                4. Comparison to typical expenses for this destination
-                """
-                
-                if st.button("Analyze Expenses"):
-                    with st.spinner("Analyzing expenses..."):
-                        analysis = llm.predict(analysis_prompt)
-                        st.write("Expense Analysis:")
-                        st.write(analysis)
-                        
-            except Exception as e:
-                st.error(f"Error reading Excel file: {str(e)}")
+        # Destination recommendations
+        st.subheader("🌍 Recommended Destinations")
+        recommendation_prompt = f"""
+        Based on this user's ratings and reviews of {location_visited}:
+        {all_reviews}
+        
+        Suggest 3 other destinations they might enjoy. For each destination:
+        1. Explain why it matches their preferences
+        2. Best time to visit
+        3. Estimated budget needed
+        
+        Keep each recommendation concise but informative.
+        """
+        
+        if st.button("Get Destination Recommendations"):
+            with st.spinner("Finding perfect destinations for you..."):
+                recommendations = llm.predict(recommendation_prompt)
+                st.write(recommendations)
