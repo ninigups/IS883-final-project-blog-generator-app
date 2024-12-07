@@ -341,7 +341,7 @@ if st.session_state.post_trip_active:
             
             Write in first person, make it engaging and personal, highlight both positives and negatives,
             and make it feel like a genuine travel blog post. Keep it to 2-3 paragraphs.
-            Include an overall experience (Positive/Negative/Neutral) at the end.
+            Include an overall sentiment analysis (Positive/Negative/Neutral) at the end.
             """
             
             with st.spinner("Generating your travel blog..."):
