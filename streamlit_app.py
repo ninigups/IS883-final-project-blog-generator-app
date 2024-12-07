@@ -379,18 +379,19 @@ if st.session_state.post_trip_active:
             st.subheader("🌍 Recommended Destinations for Your Next Visit")
             with st.spinner("Finding personalized recommendations..."):
                 recommendation_prompt = f"""
-                Based on your ratings and feedback for {location_visited}:
-                {all_reviews}
+Based on your ratings and feedback for {location_visited}:
+{all_reviews}
+
+Suggest 3 destinations that align with your ratings and preferences. For each destination, provide:
+1. Why it matches your preferences: (emphasize by using "you" and "your")
+2. Best time to visit
+3. Estimated budget needed: $XX-$YY USD per day (use actual numbers and dash/hyphen, not the word 'to')
+
+Format as clear sections for each destination with these points clearly labeled.
+Make it personal by using "you" and "your" throughout the recommendations.
+For budget ranges, always use numbers and dollar signs, for example: $80-$120 per day.
+Avoid adding any concluding statements at the end.
+"""
                 
-                Suggest 3 destinations that align with your ratings and preferences. For each destination, provide:
-                1. Why it matches your preferences: (emphasize by using "you" and "your")
-                2. Best time to visit
-                3. Estimated budget needed (in USD per day)
-                
-                Format as clear sections for each destination with these points clearly labeled.
-                Make it personal by using "you" and "your" throughout the recommendations.
-                Avoid adding any concluding statements at the end.
-                """
-                
-                recommendations = llm.predict(recommendation_prompt)
-                st.write(recommendations)
+recommendations = llm.predict(recommendation_prompt)
+st.write(recommendations)
