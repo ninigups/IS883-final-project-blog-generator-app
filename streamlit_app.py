@@ -1,15 +1,3 @@
-#os.environ["OPENAI_API_KEY"] = st.secrets['TestKey1']
-#os.environ["SERPER_API_KEY"] = st.secrets["SerperKey1"]
-
-#my_secret_key = st.secrets['TestKey1']
-#os.environ["OPENAI_API_KEY"] = my_secret_key
-
-#my_secret_key = st.secrets['TestKey1']
-#os.environ["OPENAI_API_KEY"] = my_secret_key
-
-#my_secret_key = st.secrets['TestKey1']
-#openai.api_key = my_secret_key
-
 import os
 import urllib.parse
 from io import BytesIO
@@ -21,6 +9,13 @@ from langchain_community.utilities import GoogleSerperAPIWrapper
 import openai
 import streamlit as st
 import time
+import pandas as pd
+import pytesseract
+from PIL import Image, ImageEnhance
+import PyPDF2
+import re
+from langchain.chat_models import ChatOpenAI
+from langchain.agents import initialize_agent, AgentType
 
 # Load API keys
 os.environ["OPENAI_API_KEY"] = st.secrets['TestKey1']
@@ -108,35 +103,35 @@ def generate_itinerary_with_chatgpt(origin, destination, travel_dates, interests
 def create_pdf(itinerary, flight_prices):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter)
-
-    # Styles for the document
+    
     styles = getSampleStyleSheet()
     title_style = styles["Heading1"]
     section_style = styles["Heading2"]
     text_style = styles["BodyText"]
 
     elements = []
-
-    # Add title
     elements.append(Paragraph("Travel Itinerary", title_style))
-    elements.append(Spacer(1, 20))  # Add space
-
-    # Add itinerary section
+    elements.append(Spacer(1, 20))
     elements.append(Paragraph("Itinerary:", section_style))
     for line in itinerary.splitlines():
         elements.append(Paragraph(line, text_style))
-    elements.append(Spacer(1, 20))  # Add space
-
-    # Add flight prices section
+    elements.append(Spacer(1, 20))
     elements.append(Paragraph("Flight Prices:", section_style))
     for line in flight_prices.splitlines():
         elements.append(Paragraph(line, text_style))
-    elements.append(Spacer(1, 20))  # Add space
+    elements.append(Spacer(1, 20))
 
-    # Build the PDF
     doc.build(elements)
     buffer.seek(0)
     return buffer
+
+# Initialize session state variables
+if "post_trip_active" not in st.session_state:
+    st.session_state.post_trip_active = False
+if "itinerary" not in st.session_state:
+    st.session_state.itinerary = None
+if "flight_prices" not in st.session_state:
+    st.session_state.flight_prices = None
 
 # Streamlit UI configuration
 st.set_page_config(
@@ -146,7 +141,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Add custom CSS for sky blue background
+# Add custom CSS
 st.markdown(
     """
     <style>
@@ -204,84 +199,67 @@ with st.sidebar:
     budget = st.selectbox("💰 Select your budget level", ["Low (up to $5,000)", "Medium ($5,000 to $10,000)", "High ($10,000+)"])
     interests = st.multiselect("🎯 Select your interests", ["Beach", "Hiking", "Museums", "Local Food", "Shopping", "Parks", "Cultural Sites", "Nightlife"])
 
-# Store results in session state
-if "itinerary" not in st.session_state:
-    st.session_state.itinerary = None
-if "flight_prices" not in st.session_state:
-    st.session_state.flight_prices = None
-
 # Main Content Section
-col1, col2 = st.columns([1, 1])  
+col1, col2 = st.columns([1, 1])
 
 with col1:
     generate_button = st.button("📝 Generate Travel Itinerary")
 with col2:
-    post_trip_button = st.button("📊 Post-Trip Feedback")
+    if st.button("📊 Post-Trip Feedback"):
+        st.session_state.post_trip_active = True
 
-if generate_button:  
+# Generate Itinerary Section
+if generate_button:
     if not origin or not destination or len(travel_dates) != 2:
         st.error("⚠️ Please provide all required details: origin, destination, and a valid travel date range.")
     else:
         progress = st.progress(0)
         for i in range(100):
-            time.sleep(0.01)  # Simulate loading time
+            time.sleep(0.01)
             progress.progress(i + 1)
 
         with st.spinner("Fetching details..."):
             st.session_state.flight_prices = fetch_flight_prices(origin, destination, travel_dates[0].strftime("%Y-%m-%d"))
             st.session_state.itinerary = generate_itinerary_with_chatgpt(origin, destination, travel_dates, interests, budget)
 
-if post_trip_button:  # New post-trip section toggle
-    st.session_state.show_post_trip = True
+        st.success("✅ Your travel details are ready!")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown(display_card("Itinerary", st.session_state.itinerary), unsafe_allow_html=True)
+        with col2:
+            st.markdown(display_card("Flight Prices", st.session_state.flight_prices), unsafe_allow_html=True)
 
-# Display results only if available
-if st.session_state.itinerary and st.session_state.flight_prices:
-    st.success("✅ Your travel details are ready!")
+        st.subheader("📍 Places to Visit with Map Links")
+        activities = [
+            line.split(":")[1].strip() 
+            for line in st.session_state.itinerary.split("\n") 
+            if ":" in line and "Activity" in line
+        ]
+        if activities:
+            for activity in activities:
+                place_name = extract_place_name(activity)
+                if place_name:
+                    maps_link = generate_maps_link(place_name, destination)
+                    st.markdown(f"- **{place_name}**: [View on Google Maps]({maps_link})")
+        else:
+            st.write("No activities could be identified.")
 
-    # Create two columns
-    col1, col2 = st.columns(2)
+        pdf_buffer = create_pdf(st.session_state.itinerary, st.session_state.flight_prices)
+        st.download_button(
+            label="📥 Download Itinerary as PDF",
+            data=pdf_buffer,
+            file_name="travel_itinerary.pdf",
+            mime="application/pdf",
+        )
 
-    with col1:
-        st.markdown(display_card("Itinerary", st.session_state.itinerary), unsafe_allow_html=True)
-
-    with col2:
-        st.markdown(display_card("Flight Prices", st.session_state.flight_prices), unsafe_allow_html=True)
-
-    # Display map links directly on the main page
-    st.subheader("📍 Places to Visit with Map Links")
-    activities = [
-        line.split(":")[1].strip() 
-        for line in st.session_state.itinerary.split("\n") 
-        if ":" in line and "Activity" in line
-    ]
-    if activities:
-        for activity in activities:
-            place_name = extract_place_name(activity)
-            if place_name:
-                maps_link = generate_maps_link(place_name, destination)
-                st.markdown(f"- **{place_name}**: [View on Google Maps]({maps_link})")
-    else:
-        st.write("No activities could be identified.")
-
-    # Generate and provide download link for PDF
-    pdf_buffer = create_pdf(st.session_state.itinerary, st.session_state.flight_prices)
-    st.download_button(
-        label="📥 Download Itinerary as PDF",
-        data=pdf_buffer,
-        file_name="travel_itinerary.pdf",
-        mime="application/pdf",
-    )
-
-import pytesseract
-from PIL import Image, ImageEnhance
-import PyPDF2
-import re
-from langchain.chat_models import ChatOpenAI
-from langchain.agents import initialize_agent, AgentType
-
-# Post-travel features
-if post_trip_button:
+# Post-trip section
+if st.session_state.post_trip_active:
     st.header("Post-Trip Feedback & Summary")
+    
+    # Initialize feedback data in session state if not exists
+    if "feedback_data" not in st.session_state:
+        st.session_state.feedback_data = []
     
     # User input table for trip experience
     st.subheader("Rate Your Experience")
@@ -293,65 +271,81 @@ if post_trip_button:
         "Local population (Friendliness, Helpfulness, Hospitable)",
         "Weather"
     ]
-    feedback_data = []
+    
     for param in parameters:
-        rating = st.slider(f"{param} Rating (1-10)", 1, 10, 5, key=f"rating_{param}")
-        review_text = st.text_input(f"Review for {param}", key=f"review_{param}", placeholder="Enter your review...")
-        feedback_data.append({"Parameter": param, "Rating": rating, "Review": review_text})
-
-    submit_feedback = st.button("Submit Feedback")
-    if submit_feedback:
-        feedback_df = pd.DataFrame(feedback_data)
-        st.write("Your Trip Feedback:")
-        st.write(feedback_df)
+        col1, col2 = st.columns([1, 2])
+        with col1:
+            rating = st.slider(f"{param} Rating (1-10)", 1, 10, 5, key=f"rating_{param}")
+        with col2:
+            review = st.text_input(f"Review for {param}", key=f"review_{param}")
+        
+        # Store in session state
+        if f"feedback_{param}" not in st.session_state:
+            st.session_state[f"feedback_{param}"] = {"rating": rating, "review": review}
+    
+    if st.button("Submit Feedback", key="submit_feedback"):
+        feedback_data = [
+            {
+                "Parameter": param,
+                "Rating": st.session_state[f"feedback_{param}"]["rating"],
+                "Review": st.session_state[f"feedback_{param}"]["review"]
+            }
+            for param in parameters
+        ]
+        st.session_state.feedback_submitted = pd.DataFrame(feedback_data)
+        st.success("Feedback submitted successfully!")
+        st.write(st.session_state.feedback_submitted)
 
     # Excel input for expenses
     st.subheader("Upload Expenses (Excel File)")
     expense_file = st.file_uploader("Upload an Excel file with expenses", type=["xlsx"], key="expense_file")
     if expense_file is not None:
-        expense_df = pd.read_excel(expense_file)
-        st.write("Expenses from Excel:")
-        st.write(expense_df)
-    else:
-        expense_df = pd.DataFrame()
-
-    # PDF input for expenses and OCR for images
-    st.subheader("Upload Receipts for Expense Extraction (PDF or Images)")
-    receipt_files = st.file_uploader("Upload receipt files", type=["pdf", "png", "jpg", "jpeg"], accept_multiple_files=True)
-
-    # Add contrast adjustment for better OCR
-    preprocess_contrast = st.slider("Increase Image Contrast Factor", 1.0, 3.0, 1.0, 0.1)
-    st.write("Use a higher factor if the receipt text is faint.")
-
-    if receipt_files:
-        for rfile in receipt_files:
-            file_type = rfile.type
-            if file_type == "application/pdf":
-                pdf_reader = PyPDF2.PdfReader(rfile)
-                for page in pdf_reader.pages:
-                    text_content = page.extract_text()
-                    st.text(text_content)
-            else:
-                try:
-                    img = Image.open(rfile)
-                    img = ImageEnhance.Contrast(img).enhance(preprocess_contrast)
-                    text_content = pytesseract.image_to_string(img)
-                    st.text(text_content)
-                except Exception as e:
-                    st.error(f"Error processing image: {str(e)}")
-
-    # Generate Trip Experience Review using Chain of Thought
-    st.subheader("Generate Trip Experience Review")
-    if st.button("Generate Review"):
-        all_reviews = " ".join([f"{row['Parameter']}: Rated {row['Rating']}, Review: {row['Review']}" for row in feedback_data])
-        review_prompt = f"""
-        Based on the following feedback, create a comprehensive trip review:
-        {all_reviews}
-        """
-        llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.3)
         try:
-            review_response = llm.predict(review_prompt)
-            st.write("Generated Trip Review:")
-            st.write(review_response)
+            expense_df = pd.read_excel(expense_file)
+            st.write("Expenses from Excel:")
+            st.write(expense_df)
+            
+            # Use LangChain for expense analysis
+            llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.3)
+            expense_text = expense_df.to_string()
+            analysis_prompt = f"Analyze these travel expenses and provide total spending, main categories, and any notable patterns: {expense_text}"
+            
+            if st.button("Analyze Expenses"):
+                with st.spinner("Analyzing expenses..."):
+                    analysis = llm.predict(analysis_prompt)
+                    st.write("Expense Analysis:")
+                    st.write(analysis)
+                    
         except Exception as e:
-            st.error(f"Error generating review: {str(e)}")
+            st.error(f"Error reading Excel file: {str(e)}")
+    
+    # Generate trip summary
+    if st.button("Generate Trip Summary"):
+        if hasattr(st.session_state, 'feedback_submitted'):
+            feedback_text = "\n".join([
+                f"{row['Parameter']}: Rated {row['Rating']}/10 - {row['Review']}"
+                for _, row in st.session_state.feedback_submitted.iterrows()
+            ])
+            
+            llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.4)
+            summary_prompt = f"""
+            Based on the following feedback, create a comprehensive trip summary:
+            {feedback_text}
+            Please include:
+            1. Overall experience highlights
+            2. Areas of excellence
+            3. Areas for improvement
+            4. Recommendations for future travelers
+            """
+            
+            with st.spinner("Generating summary..."):
+                summary = llm.predict(summary_prompt)
+                st.write("Trip Summary:")
+                st.write(summary)
+        else:
+            st.warning("Please submit feedback first to generate a trip summary.")
+    
+    # Add a button to go back to main page
+    if st.button("Return to Trip Planning"):
+        st.session_state.post_trip_active = False
+        st.experimental_rerun()
