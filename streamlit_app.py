@@ -264,33 +264,6 @@ if st.session_state.itinerary and st.session_state.flight_prices:
 import pandas as pd
 from langchain.chat_models import ChatOpenAI
 from langchain.agents import initialize_agent, AgentType
-# Initialize post-trip state
-if 'post_trip_active' not in st.session_state:
-    st.session_state.post_trip_active = False
-
-# Main Content Section - Buttons
-col1, col2 = st.columns([1, 1])
-
-with col1:
-    generate_button = st.button("📝 Generate Travel Itinerary", use_container_width=True)
-with col2:
-    if st.button("📊 Post-Trip Feedback", use_container_width=True):
-        st.session_state.post_trip_active = True
-
-# Original generate itinerary code
-if generate_button:
-    if not origin or not destination or len(travel_dates) != 2:
-        st.error("⚠️ Please provide all required details: origin, destination, and a valid travel date range.")
-    else:
-        progress = st.progress(0)
-        for i in range(100):
-            time.sleep(0.01)  # Simulate loading time
-            progress.progress(i + 1)
-
-        with st.spinner("Fetching details..."):
-            st.session_state.flight_prices = fetch_flight_prices(origin, destination, travel_dates[0].strftime("%Y-%m-%d"))
-            st.session_state.itinerary = generate_itinerary_with_chatgpt(origin, destination, travel_dates, interests, budget)
-
 # Post-trip feedback section
 if st.session_state.post_trip_active:
     st.header("Post-Trip Feedback & Summary")
@@ -304,76 +277,100 @@ if st.session_state.post_trip_active:
     with col3:
         duration = st.number_input("Duration (days)", min_value=1, value=1, step=1)
     
-    # Rest of your rating code remains the same until the blog generation
+    # User input table for trip experience
+    st.subheader("Rate Your Experience")
+    parameters = [
+        "Sight-seeing locations",
+        "Hotels",
+        "Food",
+        "Local transport",
+        "Local population (Friendliness, Helpfulness, Hospitable)",
+        "Weather"
+    ]
     
-    if st.button("Submit Feedback", key="submit_feedback"):
-        feedback_df = pd.DataFrame(feedback_data)
-        feedback_df["Location"] = location_visited
-        feedback_df["Date"] = date_visited
-        feedback_df["Duration"] = f"{duration} days"
-        
-        # Generate blog-style summary
-        llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.4)
-        
-        all_reviews = "\n".join([f"{row['Parameter']}: {row['Rating']}/10 - {row['Review']}" for row in feedback_data])
-        
-        blog_prompt = f"""
-        Write a personal blog-style travel review based on this feedback for {location_visited} visited on {date_visited} for {duration} days:
-        
-        {all_reviews}
-        
-        Write in first person, make it engaging and personal, highlight both positives and negatives,
-        and make it feel like a genuine travel blog post. Keep it to 2-3 paragraphs.
-        Include an overall sentiment analysis (Positive/Negative/Neutral) at the end.
-        """
-        
-        with st.spinner("Generating your travel blog..."):
-            blog_post = llm.predict(blog_prompt)
-            st.subheader("Your Travel Story")
-            st.write(blog_post)
+    # Initialize feedback data storage
+    if 'feedback_data' not in st.session_state:
+        st.session_state.feedback_data = []
 
-        # Travel companion finder - Updated heading
-        st.subheader("🤝 Find Travel Companions for Your Next Adventure")
-        companion_query = f"site:reddit.com travel companion {location_visited} OR travel buddy {location_visited} OR solo travel {location_visited}"
-        
-        try:
-            search_results = serper_tool.func(companion_query)
+    # Collect ratings and reviews
+    feedback_data = []
+    for param in parameters:
+        st.write(f"**{param}**")
+        col1, col2 = st.columns([1, 2])
+        with col1:
+            rating = st.slider(f"Rating (1-10)", 1, 10, 5, key=f"rating_{param}")
+        with col2:
+            review = st.text_area(f"Your thoughts about {param}", key=f"review_{param}", height=100)
+        feedback_data.append({
+            "Parameter": param,
+            "Rating": rating,
+            "Review": review
+        })
+
+    if st.button("Submit Feedback", key="submit_feedback"):
+        if not location_visited:
+            st.error("Please enter the location visited.")
+        else:
+            # Create DataFrame with collected feedback
+            feedback_df = pd.DataFrame(feedback_data)
             
-            companion_prompt = f"""
-            Based on these search results about travel companions and solo travel in {location_visited}:
-            {search_results}
+            # Generate blog-style summary
+            llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.4)
             
-            Please provide:
-            1. Popular platforms/communities for finding travel companions
-            2. Recent posts about people looking for travel buddies in this area
-            3. Tips for solo travelers in {location_visited}
-            4. Safety recommendations for meeting travel companions
+            all_reviews = "\n".join([f"{row['Parameter']}: {row['Rating']}/10 - {row['Review']}" 
+                                   for row in feedback_data])
             
-            Keep it concise and practical.
+            blog_prompt = f"""
+            Write a personal blog-style travel review based on this feedback for {location_visited} visited on {date_visited} for {duration} days:
+            
+            {all_reviews}
+            
+            Write in first person, make it engaging and personal, highlight both positives and negatives,
+            and make it feel like a genuine travel blog post. Keep it to 2-3 paragraphs.
+            Include an overall sentiment analysis (Positive/Negative/Neutral) at the end.
             """
             
-            companion_info = llm.predict(companion_prompt)
-            st.write(companion_info)
-            
-        except Exception as e:
-            st.error(f"Error searching for travel companions: {str(e)}")
+            with st.spinner("Generating your travel blog..."):
+                blog_post = llm.predict(blog_prompt)
+                st.subheader("Your Travel Story")
+                st.write(blog_post)
 
-        # Destination recommendations - Updated heading
-        st.subheader("🌍 Recommended Destinations for Your Next Visit")
-        recommendation_prompt = f"""
-        Based on this user's ratings and reviews of {location_visited}:
-        {all_reviews}
-        
-        Suggest 3 other destinations they might enjoy. For each destination:
-        1. Explain why it matches their preferences
-        2. Best time to visit
-        3. Estimated budget needed
-        
-        Keep each recommendation concise but informative.
-        """
-        
-        try:
-            recommendations = llm.predict(recommendation_prompt)
-            st.write(recommendations)
-        except Exception as e:
-            st.error(f"Error generating recommendations: {str(e)}")
+            # Travel companion finder
+            st.subheader("🤝 Find Travel Companions for Your Next Adventure")
+            with st.spinner("Finding travel companions..."):
+                companion_query = f"site:reddit.com travel companion {location_visited} OR travel buddy {location_visited} OR solo travel {location_visited}"
+                search_results = serper_tool.func(companion_query)
+                
+                companion_prompt = f"""
+                Based on these search results about travel companions and solo travel in {location_visited}:
+                {search_results}
+                
+                Please provide:
+                1. Popular platforms/communities for finding travel companions
+                2. Recent posts about people looking for travel buddies in this area
+                3. Tips for solo travelers in {location_visited}
+                4. Safety recommendations for meeting travel companions
+                
+                Keep it concise and practical.
+                """
+                
+                companion_info = llm.predict(companion_prompt)
+                st.write(companion_info)
+
+            # Destination recommendations
+            st.subheader("🌍 Recommended Destinations for Your Next Visit")
+            with st.spinner("Finding personalized recommendations..."):
+                recommendation_prompt = f"""
+                Based on this user's ratings and reviews of {location_visited}:
+                {all_reviews}
+                
+                Suggest 3 other destinations they might enjoy. For each destination:
+                1. Explain why it matches their preferences
+                2. Best time to visit
+                3. Estimated budget needed
+                
+                Keep each recommendation concise but informative.
+                """
+                
+                recommendations = llm.predict(recommendation_prompt)
+                st.write(recommendations)
