@@ -274,7 +274,11 @@ if st.session_state.itinerary and st.session_state.flight_prices:
 import pandas as pd
 from langchain.chat_models import ChatOpenAI
 from langchain.agents import initialize_agent, AgentType
-# Post-trip feedback section
+
+# Initialize post-trip state if not exists
+if "post_trip_active" not in st.session_state:
+    st.session_state.post_trip_active = False
+
 if st.session_state.post_trip_active:
     st.header("Post-Trip Feedback & Summary")
     
@@ -375,23 +379,26 @@ if st.session_state.post_trip_active:
                 except Exception as e:
                     st.error(f"Error finding hidden gems: {str(e)}")
 
-            # Recommendations section
+            # Recommendations section (moved to the end)
             st.subheader("🌍 Recommended Destinations for Your Next Visit")
             with st.spinner("Finding personalized recommendations..."):
                 recommendation_prompt = f"""
-Based on your ratings and feedback for {location_visited}:
-{all_reviews}
-
-Suggest 3 destinations that align with your ratings and preferences. For each destination, provide:
-1. Why it matches your preferences: (emphasize by using "you" and "your")
-2. Best time to visit
-3. Estimated budget needed: $XX-$YY USD per day (use actual numbers and dash/hyphen, not the word 'to')
-
-Format as clear sections for each destination with these points clearly labeled.
-Make it personal by using "you" and "your" throughout the recommendations.
-For budget ranges, always use numbers and dollar signs, for example: $80-$120 per day.
-Avoid adding any concluding statements at the end.
-"""
+                Based on your ratings and feedback for {location_visited}:
+                {all_reviews}
                 
-recommendations = llm.predict(recommendation_prompt)
-st.write(recommendations)
+                Suggest 3 destinations that align with your ratings and preferences. For each destination, write:
+                1. Why it matches your preferences: (emphasize by using "you" and "your")
+                2. Best time to visit
+                3. Estimated budget needed: Always format as $XX-$XX USD per day (use numbers and hyphen)
+                
+                Format as clear sections for each destination.
+                Use "you" and "your" throughout the recommendations.
+                For all budget ranges, use format like $80-$120 per day.
+                Do not add any concluding statements.
+                """
+                
+                try:
+                    recommendations = llm.predict(recommendation_prompt)
+                    st.write(recommendations)
+                except Exception as e:
+                    st.error(f"Error generating recommendations: {str(e)}")
