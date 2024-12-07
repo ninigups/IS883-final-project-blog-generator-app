@@ -446,7 +446,7 @@ if show_post_travel:
         USER: {st.session_state.review_generated}
         """
         if st.button("Classify Generated Review"):
-            sentiment_chain_llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.0)
+            sentiment_chain_llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.0)
             try:
                 sentiment_response = sentiment_chain_llm(sentiment_prompt)
                 st.write("Sentiment of the Review:")
