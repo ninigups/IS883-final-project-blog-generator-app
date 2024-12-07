@@ -199,14 +199,12 @@ with st.sidebar:
     budget = st.selectbox("💰 Select your budget level", ["Low (up to $5,000)", "Medium ($5,000 to $10,000)", "High ($10,000+)"])
     interests = st.multiselect("🎯 Select your interests", ["Beach", "Hiking", "Museums", "Local Food", "Shopping", "Parks", "Cultural Sites", "Nightlife"])
 
-# Main Content Section
+# Main Content Section 
 col1, col2 = st.columns([1, 1])
-
 with col1:
-    generate_button = st.button("📝 Generate Travel Itinerary")
+    generate_button = st.button("📝 Generate Travel Itinerary", use_container_width=True)
 with col2:
-    if st.button("📊 Post-Trip Feedback"):
-        st.session_state.post_trip_active = True
+    post_trip_button = st.button("📊 Post-Trip Feedback", use_container_width=True)
 
 # Generate Itinerary Section
 if generate_button:
@@ -301,76 +299,73 @@ if st.session_state.post_trip_active:
         
         st.session_state.feedback_submitted = feedback_df
         st.success("Feedback submitted successfully!")
-        st.write(feedback_df)
 
-        # Generate comprehensive analysis
-        st.subheader("Trip Analysis")
+        # Generate blog-style summary
+        llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.4)
         
-        # Combine all reviews for sentiment analysis
-        all_reviews = " ".join([f"{row['Review']}" for row in feedback_data if row['Review']])
-        average_rating = sum([row['Rating'] for row in feedback_data]) / len(feedback_data)
+        blog_prompt = f"""
+        Write a personal blog-style travel review based on this feedback for {location_visited} visited on {date_visited}:
         
-        llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.3)
+        {', '.join([f"{row['Parameter']}: {row['Rating']}/10 - {row['Review']}" for row in feedback_data])}
         
-        analysis_prompt = f"""
-        Analyze this trip feedback for {location_visited}:
-        
-        Average Rating: {average_rating}/10
-        Reviews: {all_reviews}
-        
-        Please provide:
-        1. Overall sentiment (Positive/Negative/Neutral) with explanation
-        2. Key highlights from the reviews
-        3. Areas of improvement
-        4. Based on this feedback, recommend 3 other destinations they might enjoy
-        
-        Format the response with clear headers and bullet points.
+        Write in first person, make it engaging and personal, highlight both positives and negatives,
+        and make it feel like a genuine travel blog post. Keep it to 2-3 paragraphs.
         """
         
-        with st.spinner("Analyzing your feedback..."):
-            analysis = llm.predict(analysis_prompt)
-            st.write(analysis)
-            
-    # Excel input for expenses
-    st.subheader("Upload Expenses (Excel File)")
-    expense_file = st.file_uploader("Upload an Excel file with expenses", type=["xlsx"], key="expense_file")
-    if expense_file is not None:
-        try:
-            expense_df = pd.read_excel(expense_file)
-            st.write("Expenses from Excel:")
-            st.write(expense_df)
-            
-            # Expense Analysis
-            llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.3)
-            expense_text = expense_df.to_string()
-            analysis_prompt = f"""
-            Analyze these travel expenses for {location_visited} and provide:
-            1. Total spending
-            2. Breakdown by category
-            3. Cost-saving opportunities
-            4. Comparison to typical expenses for this destination
-            """
-            
-            if st.button("Analyze Expenses"):
-                with st.spinner("Analyzing expenses..."):
-                    analysis = llm.predict(analysis_prompt)
-                    st.write("Expense Analysis:")
-                    st.write(analysis)
-                    
-        except Exception as e:
-            st.error(f"Error reading Excel file: {str(e)}")
+        with st.spinner("Generating your travel blog..."):
+            blog_post = llm.predict(blog_prompt)
+            st.subheader("Your Travel Story")
+            st.write(blog_post)
 
-    # Add photo memories section
-    st.subheader("Upload Trip Photos")
-    photos = st.file_uploader("Share your trip photos", type=["png", "jpg", "jpeg"], 
-                            accept_multiple_files=True, key="photos")
-    
-    if photos:
-        st.write("Your Trip Memories:")
-        cols = st.columns(3)
-        for idx, photo in enumerate(photos):
-            with cols[idx % 3]:
-                st.image(photo, caption=f"Memory {idx+1}", use_column_width=True)
-                location_tag = st.text_input(f"Location tag for photo {idx+1}", 
-                                          placeholder="Enter location")
-                st.session_state[f"photo_{idx}_location"] = location_tag
+        # Travel companion search section
+        st.subheader("🤝 Looking for Travel Companions?")
+        if st.button("Find Travel Companions"):
+            companion_query = f"site:reddit.com travel companion {location_visited} OR travel buddy {location_visited}"
+            try:
+                search_results = serper_tool.func(companion_query)
+                
+                companion_prompt = f"""
+                Based on these search results about travel companions:
+                {search_results}
+                
+                Please summarize:
+                1. Popular platforms/communities for finding travel companions
+                2. Common safety tips for traveling with new people
+                3. Recommended ways to connect with potential travel buddies
+                4. Current travel companion opportunities for {location_visited}
+                
+                Format it in a clear, easy-to-read way.
+                """
+                
+                with st.spinner("Finding travel companion information..."):
+                    companion_info = llm.predict(companion_prompt)
+                    st.write(companion_info)
+            except Exception as e:
+                st.error(f"Error searching for travel companions: {str(e)}")
+
+        # Expense Analysis Section
+        st.subheader("Upload Expenses (Excel File)")
+        expense_file = st.file_uploader("Upload an Excel file with expenses", type=["xlsx"], key="expense_file")
+        if expense_file is not None:
+            try:
+                expense_df = pd.read_excel(expense_file)
+                st.write("Expenses from Excel:")
+                st.write(expense_df)
+                
+                expense_text = expense_df.to_string()
+                analysis_prompt = f"""
+                Analyze these travel expenses for {location_visited} and provide:
+                1. Total spending
+                2. Breakdown by category
+                3. Cost-saving opportunities
+                4. Comparison to typical expenses for this destination
+                """
+                
+                if st.button("Analyze Expenses"):
+                    with st.spinner("Analyzing expenses..."):
+                        analysis = llm.predict(analysis_prompt)
+                        st.write("Expense Analysis:")
+                        st.write(analysis)
+                        
+            except Exception as e:
+                st.error(f"Error reading Excel file: {str(e)}")
