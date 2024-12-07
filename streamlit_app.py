@@ -287,10 +287,10 @@ if st.session_state.post_trip_active:
     with col3:
         duration = st.number_input("Duration (days)", min_value=1, value=1, step=1)
     
-    # Initialize LLM once here for all uses
+    # Initialize LLM 
     llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.4)
     
-    # User input table for trip experience
+    # User input table for trip experience and blog generation
     st.subheader("Rate Your Experience")
     parameters = [
         "Sight-seeing locations",
@@ -341,7 +341,7 @@ if st.session_state.post_trip_active:
             
             Write in first person, make it engaging and personal, highlight both positives and negatives,
             and make it feel like a genuine travel blog post. Keep it to 2-3 paragraphs.
-            Include an overall sentiment analysis (Positive/Negative/Neutral) at the end.
+            Include an overall experience (Positive/Negative/Neutral) at the end.
             """
             
             with st.spinner("Generating your travel blog..."):
