@@ -350,30 +350,30 @@ if st.session_state.post_trip_active:
                 st.write(blog_post)
 
   # Hidden Gems section
-    st.subheader("💎 Planning to Visit Again? Discover Hidden Gems")
-    with st.spinner("Finding unique local spots..."):
+st.subheader("💎 Planning to Visit Again? Discover Hidden Gems")
+with st.spinner("Finding unique local spots..."):
     hidden_gems_query = f"hidden gems OR secret spots OR local favorites OR off the beaten path {location_visited} -tripadvisor -tourradar"
     try:
-    search_results = serper_tool.func(hidden_gems_query)
-                    
-    hidden_gems_prompt = f"""
-    Based on these search results about {location_visited}, provide:
-                    
-    1. Lesser-Known Local Spots: Hidden restaurants, cafes, or viewpoints that tourists often miss
-    2. Authentic Local Experiences: Unique cultural activities or traditions you can participate in
-    3. Local Tips: Best times to visit these places and insider recommendations
-                    
-    Focus on unique, authentic experiences that aren't in typical tourist guides.
-    Make it personal by addressing the reader directly using "you" and "your".
-    Format with clear, concise headings and bullet points.
-    Keep the text size consistent throughout.
-    Do not add location name in the title, start directly with the categories.
-    """
-                    
-    hidden_gems_info = llm.predict(hidden_gems_prompt)
-    st.write(hidden_gems_info)
+        search_results = serper_tool.func(hidden_gems_query)
+        
+        hidden_gems_prompt = f"""
+        Based on these search results about {location_visited}, provide:
+        
+        1. Lesser-Known Local Spots: Hidden restaurants, cafes, or viewpoints that tourists often miss
+        2. Authentic Local Experiences: Unique cultural activities or traditions you can participate in
+        3. Local Tips: Best times to visit these places and insider recommendations
+        
+        Focus on unique, authentic experiences that aren't in typical tourist guides.
+        Make it personal by addressing the reader directly using "you" and "your".
+        Format with clear, concise headings and bullet points.
+        Keep the text size consistent throughout.
+        Do not add location name in the title, start directly with the categories.
+        """
+        
+        hidden_gems_info = llm.predict(hidden_gems_prompt)
+        st.write(hidden_gems_info)
     except Exception as e:
-    st.error(f"Error finding hidden gems: {str(e)}")
+        st.error(f"Error finding hidden gems: {str(e)}")
 
             
     # Recommendations section
